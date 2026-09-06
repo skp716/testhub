@@ -9,7 +9,10 @@ service cloud.firestore {
     match /exam_config/current_test { allow read: if signedIn(); allow write: if admin(); }
     match /attempts/{attemptId} {
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && request.resource.data.status == 'in_progress' && request.resource.data.email is string;
-      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || admin());
+      // A candidate checks the deterministic attempt ID before creating it.
+      // A missing document has no resource owner, so explicitly allow that GET.
+      allow get: if signedIn() && (resource == null || resource.data.ownerUid == request.auth.uid || admin());
+      allow list: if admin();
       allow update: if signedIn() && ((resource.data.ownerUid == request.auth.uid && request.resource.data.ownerUid == resource.data.ownerUid) || admin());
       allow delete: if admin();
     }
