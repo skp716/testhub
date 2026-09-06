@@ -19,7 +19,10 @@ service cloud.firestore {
     match /results/{resultId} {
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && exists(/databases/$(database)/documents/attempts/$(resultId)) && get(/databases/$(database)/documents/attempts/$(resultId)).data.ownerUid == request.auth.uid;
       allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || admin());
-      allow update, delete: if admin();
+      allow update: if admin() || (signedIn() && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'doubt', 'feedback', 'feedbackAt']));
+      allow delete: if admin();
     }
     match /{document=**} { allow read, write: if false; }
   }
