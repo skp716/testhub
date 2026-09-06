@@ -1,7 +1,7 @@
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
 import{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 import{getFirestore,doc,getDoc,setDoc,collection,onSnapshot,getDocs,writeBatch,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-const firebaseConfig={apiKey:"AIzaSyBpJ1rZy_dsJbXmg0jPfZrVEg7vlMbwRkM",authDomain:"testhub-43fd8.firebaseapp.com",projectId:"testhub-43fd8",storageBucket:"testhub-43fd8.firebasestorage.app",messagingSenderId:"530965492161",appId:"1:530965492161:web:b8ea984ef0c9cb14763f40"};
+const firebaseConfig={apiKey:"AIzaSyBp1JrZy_dsJbXmg0jPfZrVEg7vlMbwRkM",authDomain:"testhub-43fd8.firebaseapp.com",projectId:"testhub-43fd8",storageBucket:"testhub-43fd8.firebasestorage.app",messagingSenderId:"530965492161",appId:"1:530965492161:web:b8ea984ef0c9cb14763f40"};
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);let results=[],attempts=[],unsubs=[];
 const millis=v=>v?.toMillis?v.toMillis():v?.seconds?v.seconds*1000:typeof v==="number"?v:Date.parse(v)||0;
 const format=v=>millis(v)?new Date(millis(v)).toLocaleString("en-IN"):"-";

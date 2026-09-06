@@ -3,7 +3,7 @@ import{getAuth,signInAnonymously,onAuthStateChanged}from"https://www.gstatic.com
 import{getFirestore,doc,getDoc,setDoc,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import{SecurityMonitor}from"./security.js";
 
-const firebaseConfig={apiKey:"AIzaSyBpJ1rZy_dsJbXmg0jPfZrVEg7vlMbwRkM",authDomain:"testhub-43fd8.firebaseapp.com",projectId:"testhub-43fd8",storageBucket:"testhub-43fd8.firebasestorage.app",messagingSenderId:"530965492161",appId:"1:530965492161:web:b8ea984ef0c9cb14763f40"};
+const firebaseConfig={apiKey:"AIzaSyBp1JrZy_dsJbXmg0jPfZrVEg7vlMbwRkM",authDomain:"testhub-43fd8.firebaseapp.com",projectId:"testhub-43fd8",storageBucket:"testhub-43fd8.firebasestorage.app",messagingSenderId:"530965492161",appId:"1:530965492161:web:b8ea984ef0c9cb14763f40"};
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
 let config=null,questions=[],attempt=null,attemptId="",current=0,timerHandle=null,monitor=null,submitting=false;
 const showMessage=(text,error=false)=>{$("loginMessage").textContent=text;$("loginMessage").className=`notice${error?" error":""}`};
