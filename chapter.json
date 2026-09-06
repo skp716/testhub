@@ -1,0 +1,12 @@
+[
+{"id":1,"q":"How do plants make their own food?","options":["Respiration","Photosynthesis","Digestion","Transpiration"],"a":"Photosynthesis"},
+{"id":2,"q":"What is the chemical formula of water?","options":["CO₂","H₂O","O₂","H₂SO₄"],"a":"H₂O"},
+{"id":3,"q":"Which is the largest organ in the human body?","options":["Heart","Liver","Skin","Lungs"],"a":"Skin"},
+{"id":4,"q":"What do we get from the Sun?","options":["Light and Energy","Only Water","Only Air","Only Sound"],"a":"Light and Energy"},
+{"id":5,"q":"Which substance gives blood its red color?","options":["Platelets","Hemoglobin","Plasma","White Blood Cells"],"a":"Hemoglobin"},
+{"id":6,"q":"In which medium can sound NOT travel?","options":["Solid","Liquid","Gas","Vacuum"],"a":"Vacuum"},
+{"id":7,"q":"What is Earth's natural satellite?","options":["Mars","Sun","Moon","Venus"],"a":"Moon"},
+{"id":8,"q":"Which fruit is a rich source of Vitamin C?","options":["Orange","Rice","Butter","Lentils"],"a":"Orange"},
+{"id":9,"q":"Approximately what percentage of Earth's atmosphere is oxygen?","options":["21%","50%","78%","10%"],"a":"21%"},
+{"id":10,"q":"Which metal is a good conductor of electricity?","options":["Wood","Plastic","Copper","Rubber"],"a":"Copper"}
+]

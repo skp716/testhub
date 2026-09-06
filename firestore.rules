@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function admin() {
+      return signedIn() && exists(/databases/$(database)/documents/admin/$(request.auth.uid)) && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.active == true && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
+    match /admin/{uid} { allow read: if signedIn() && (request.auth.uid == uid || admin()); allow write: if admin(); }
+    match /exam_config/current_test { allow read: if signedIn(); allow write: if admin(); }
+    match /attempts/{attemptId} {
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && request.resource.data.status == 'in_progress' && request.resource.data.email is string;
+      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || admin());
+      allow update: if signedIn() && ((resource.data.ownerUid == request.auth.uid && request.resource.data.ownerUid == resource.data.ownerUid) || admin());
+      allow delete: if admin();
+    }
+    match /results/{resultId} {
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && exists(/databases/$(database)/documents/attempts/$(resultId)) && get(/databases/$(database)/documents/attempts/$(resultId)).data.ownerUid == request.auth.uid;
+      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || admin());
+      allow update, delete: if admin();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
