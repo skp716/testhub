@@ -12,11 +12,13 @@ import {
   getFirestore,
   doc,
   getDoc,
-  setDoc,
-  updateDoc,
-  onSnapshot,
-  serverTimestamp
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+
+import {
+  getFunctions,
+  httpsCallable
+} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-functions.js";
 
 import {
   SecurityMonitor
@@ -916,306 +918,52 @@ async function getPool() {
 ========================================================= */
 
 async function prepareExam() {
-
-  const button =
-    $("startBtn");
-
-
-  button.disabled =
-    true;
-
-
+  const button = $("startBtn");
+  button.disabled = true;
   try {
+    if (!auth.currentUser) await signInAnonymously(auth);
+    if (!pendingCandidate) throw Error("Full name and email are required.");
 
-    if (
-      !auth.currentUser
-    ) {
+    attemptId = await hash(`${config.examId || "current_test"}::${pendingCandidate.email}::${auth.currentUser.uid}`);
 
-      await signInAnonymously(
-        auth
-      );
-
-    }
-
-
-    if (
-      !pendingCandidate
-    ) {
-
-      throw Error(
-        "Full name and email are required."
-      );
-
-    }
-
-
-    /*
-       Same email can take
-       different exams.
-    */
-
-    attemptId =
-      await hash(
-        `${
-          config.examId ||
-          "current_test"
-        }::${
-          pendingCandidate.email
-        }`
-      );
-
-
-    const attemptRef =
-      doc(
-        db,
-        "attempts",
-        attemptId
-      );
-
-
-    const existing =
-      await getDoc(
-        attemptRef
-      );
-
-
-    pool =
-      await getPool();
-
-
-    if (
-      existing.exists()
-    ) {
-
-      attempt =
-        existing.data();
-
-
-      if (
-        attempt.ownerUid !==
-        auth.currentUser.uid
-      ) {
-
-        throw Error(
-          "An exam attempt already exists for this email."
-        );
-
-      }
-
-
-      if (
-        attempt.status ===
-        "submitted"
-      ) {
-
-        throw Error(
-          "This email has already submitted the exam."
-        );
-
-      }
-
-
-      const map =
-        new Map(
-          pool.map(
-            question => [
-              String(
-                question.id
-              ),
-              question
-            ]
-          )
-        );
-
-
-      questions =
-        (
-          attempt.questionIds ||
-          []
-        )
-          .map(
-            id =>
-              map.get(
-                String(id)
-              )
-          )
-          .filter(
-            Boolean
-          );
-
-
-      if (
-        questions.length !==
-        (
-          attempt.questionIds ||
-          []
-        ).length
-      ) {
-
-        throw Error(
-          "Some saved questions are no longer available."
-        );
-
-      }
-
-
-      current =
-        Number(
-          attempt.currentIndex ||
-          0
-        );
-
-
-      startExam(
-        true
-      );
-
-
+    try {
+      const resumed = await callGetAttempt({ attemptId });
+      const data = resumed.data;
+      attempt = { ...(data || {}), ownerUid: auth.currentUser.uid };
+      attemptId = data.attemptId || attemptId;
+      questions = Array.isArray(data.questions) ? data.questions : [];
+      current = Number(data.currentIndex || 0);
+      if (!questions.length) throw Error("The saved examination questions could not be loaded.");
+      startExam(true);
       return;
-
+    } catch (resumeError) {
+      const code = String(resumeError?.code || "");
+      if (!code.includes("not-found")) throw resumeError;
     }
 
-
-    questions =
-      pool;
-
-
-    if (
-      !questions.length
-    ) {
-
-      throw Error(
-        "The question bank is empty."
-      );
-
-    }
-
-
-    const startedAt =
-      Date.now();
-
+    const started = await callStartExam({ attemptId, name: pendingCandidate.name, email: pendingCandidate.email, centerCode: pendingCandidate.centerCode });
+    const data = started.data;
+    attemptId = data.attemptId;
+    questions = Array.isArray(data.questions) ? data.questions : [];
+    if (!questions.length) throw Error("The question bank is empty.");
 
     attempt = {
-
-      ownerUid:
-        auth.currentUser.uid,
-
-      name:
-        pendingCandidate.name,
-
-      email:
-        pendingCandidate.email,
-
-      centerCode:
-        pendingCandidate.centerCode,
-
-      examId:
-        config.examId ||
-        "current_test",
-
-      exam:
-        config.examTitle ||
-        "TestHub Examination",
-
-      examTitle:
-        config.examTitle ||
-        "TestHub Examination",
-
-      status:
-        "in_progress",
-
-      startedAt,
-
-      endsAt:
-        startedAt +
-        (
-          Number(
-            config.durationMinutes
-          ) || 30
-        ) *
-        60000,
-
-      currentIndex:
-        0,
-
-      questionIds:
-        questions.map(
-          question =>
-            question.id
-        ),
-
-      questionSubjects:
-        questions.map(
-          question =>
-            question.__subject ||
-            "General"
-        ),
-
-      answers:
-        {},
-
-      review:
-        [],
-
-      violations:
-        [],
-
-      violationCount:
-        0,
-
-      penaltiesApplied:
-        0,
-
-      forceSubmitRequested:
-        false
-
+      ownerUid: auth.currentUser.uid, name: pendingCandidate.name, email: pendingCandidate.email,
+      centerCode: pendingCandidate.centerCode, examId: config.examId || "current_test",
+      exam: config.examTitle || "TestHub Examination", examTitle: data.examTitle || config.examTitle || "TestHub Examination",
+      status: "in_progress", startedAt: Number(data.startedAt || Date.now()), endsAt: Number(data.endsAt || Date.now()),
+      currentIndex: 0, questionIds: questions.map(q => q.id),
+      questionSubjects: questions.map(q => q.section || "General"),
+      answers: {}, review: [], violations: [], violationCount: 0, penaltiesApplied: 0, forceSubmitRequested: false
     };
-
-
-    await setDoc(
-      attemptRef,
-      {
-        ...attempt,
-
-        updatedAt:
-          serverTimestamp()
-
-      }
-    );
-
-
-    startExam(
-      false
-    );
-
+    startExam(false);
   } catch (error) {
-
-    message(
-      error.message ||
-      "Unable to start the examination.",
-      true
-    );
-
-
-    $("instructionsView")
-      .classList
-      .add(
-        "hidden"
-      );
-
-
-    $("loginView")
-      .classList
-      .remove(
-        "hidden"
-      );
-
-
-    button.disabled =
-      false;
-
+    message(error.message || "Unable to start the examination.", true);
+    $("instructionsView").classList.add("hidden");
+    $("loginView").classList.remove("hidden");
+  } finally {
+    button.disabled = false;
   }
-
 }
 
 
@@ -1265,11 +1013,8 @@ function startAttemptListener() {
            synchronized with the server.
         */
 
-        attempt =
-          {
-            ...attempt,
-            ...remote
-          };
+        attempt = { ...attempt, ...remote };
+        if (Array.isArray(remote.questions) && remote.questions.length) questions = remote.questions;
 
 
         /*
@@ -1309,8 +1054,7 @@ function startAttemptListener() {
         */
 
         if (
-          remote.status ===
-          "submitted" &&
+          ["submitted", "auto_submitted"].includes(remote.status) &&
           !submitting
         ) {
 
@@ -1485,17 +1229,8 @@ async function startExam(
   startAttemptListener();
 
 
-  if (
-    resumed
-  ) {
-
-    await sync({
-
-      lastResumedAt:
-        serverTimestamp()
-
-    });
-
+  if (resumed) {
+    await sync();
   }
 
 }
@@ -1788,70 +1523,14 @@ function save() {
    SYNC
 ========================================================= */
 
-async function sync(
-  extra = {}
-) {
-
-  Object.assign(
-    attempt,
-    extra,
-    {
-      currentIndex:
-        current
-    }
-  );
-
-
+async function sync(extra = {}) {
+  Object.assign(attempt, extra, { currentIndex: current });
   try {
-
-    await updateDoc(
-      doc(
-        db,
-        "attempts",
-        attemptId
-      ),
-      {
-
-        answers:
-          attempt.answers ||
-          {},
-
-        review:
-          attempt.review ||
-          [],
-
-        currentIndex:
-          current,
-
-        violations:
-          attempt.violations ||
-          [],
-
-        violationCount:
-          attempt.violationCount ||
-          0,
-
-        penaltiesApplied:
-          attempt.penaltiesApplied ||
-          0,
-
-        ...extra,
-
-        updatedAt:
-          serverTimestamp()
-
-      }
-    );
-
+    await callSaveAnswers({ attemptId, answers: attempt.answers || {} });
+    await callSaveNavigation({ attemptId, currentIndex: current, review: Array.isArray(attempt.review) ? attempt.review : [], visited: {} });
   } catch (error) {
-
-    console.error(
-      "Attempt sync failed:",
-      error
-    );
-
+    console.error("Secure attempt sync failed:", error);
   }
-
 }
 
 
@@ -1987,158 +1666,18 @@ function alertSecurity(
 }
 
 
-async function violation(
-  event
-) {
-
-  /*
-     Ignore initial fullscreen
-     initialization window.
-  */
-
-  if (
-    !securityReady ||
-    Date.now() <
-      securityGraceUntil
-  ) {
-
-    return;
-
-  }
-
-
-  if (
-    submitting
-  ) {
-
-    return;
-
-  }
-
-
-  attempt.violationCount =
-    Number(
-      attempt.violationCount ||
-      0
-    ) + 1;
-
-
-  attempt.penaltiesApplied =
-    Number(
-      (
-        Number(
-          attempt.penaltiesApplied ||
-          0
-        ) +
-        Number(
-          config.tabPenalty ||
-          0
-        )
-      ).toFixed(2)
-    );
-
-
-  attempt.violations.push({
-
-    type:
-      event.type,
-
-    message:
-      event.message ||
-      "",
-
-    at:
-      Date.now()
-
-  });
-
-
-  alertSecurity(
-    `${
-      event.message ||
-      "Suspicious activity"
-    } · Violation ${
-      attempt.violationCount
-    }`
-  );
-
-
-  if (
-    config.replaceQuestionOnSwitch !==
-    false
-  ) {
-
-    const used =
-      new Set(
-        questions.map(
-          question =>
-            String(
-              question.id
-            )
-        )
-      );
-
-
-    const replacement =
-      shuffle(
-        pool
-      )
-        .find(
-          question =>
-            !used.has(
-              String(
-                question.id
-              )
-            )
-        );
-
-
-    if (
-      replacement
-    ) {
-
-      const oldId =
-        questions[
-          current
-        ].id;
-
-
-      delete attempt.answers[
-        String(
-          oldId
-        )
-      ];
-
-
-      questions[
-        current
-      ] =
-        replacement;
-
-
-      attempt.questionIds[
-        current
-      ] =
-        replacement.id;
-
-
-      await sync({
-
-        questionIds:
-          attempt.questionIds
-
-      });
-
-    }
-
-  }
-
-
-  await sync();
-
-  render();
-
+async function violation(event) {
+  if (!securityReady || Date.now() < securityGraceUntil || submitting) return;
+  alertSecurity(event.message || "Suspicious activity");
+  try {
+    const response = await callRecordViolation({ attemptId, type: event.type, message: event.message || "" });
+    const data = response.data || {};
+    attempt.violationCount = Number(data.violationCount ?? attempt.violationCount ?? 0);
+    attempt.penaltiesApplied = Number(data.penaltiesApplied ?? attempt.penaltiesApplied ?? 0);
+    if (data.autoSubmit) await submitExam(true);
+  } catch (error) { console.error("Security violation could not be recorded:", error); }
 }
+
 
 
 /* =========================================================
@@ -2311,321 +1850,29 @@ function calculate() {
    SUBMIT
 ========================================================= */
 
-async function submitExam(
-  autoSubmitted
-) {
-
-  if (
-    submitting
-  ) {
-
-    return;
-
-  }
-
-
-  submitting =
-    true;
-
-
-  clearInterval(
-    timerHandle
-  );
-
-
+async function submitExam(autoSubmitted = false) {
+  if (submitting) return;
+  submitting = true;
+  clearInterval(timerHandle);
   monitor?.stop();
-
-
-  if (
-    attemptUnsubscribe
-  ) {
-
-    attemptUnsubscribe();
-
-    attemptUnsubscribe =
-      null;
-
-  }
-
-
-  save();
-
-
-  const calculated =
-    calculate();
-
-
-  const tabTypes = [
-
-    "tab-hidden",
-
-    "window-blur",
-
-    "fullscreen-exit",
-
-    "viewport-change"
-
-  ];
-
-
-  const copyTypes = [
-
-    "copy",
-
-    "cut",
-
-    "paste",
-
-    "context-menu",
-
-    "print",
-
-    "selection"
-
-  ];
-
-
-  const result = {
-
-    ownerUid:
-      auth.currentUser.uid,
-
-    name:
-      attempt.name,
-
-    email:
-      attempt.email,
-
-    centerCode:
-      attempt.centerCode ||
-      config.centerCode ||
-      "",
-
-    examId:
-      config.examId ||
-      attempt.examId ||
-      "current_test",
-
-    exam:
-      config.examTitle ||
-      "TestHub Examination",
-
-    examTitle:
-      config.examTitle ||
-      "TestHub Examination",
-
-    instituteName:
-      config.instituteName ||
-      "TestHub",
-
-    correct:
-      calculated.correct,
-
-    wrong:
-      calculated.wrong,
-
-    unanswered:
-      calculated.unanswered,
-
-    score:
-      calculated.score,
-
-    total:
-      questions.length,
-
-    answers:
-      attempt.answers ||
-      {},
-
-    questionIds:
-      attempt.questionIds ||
-      [],
-
-    questionSubjects:
-      attempt.questionSubjects ||
-      [],
-
-    tabSwitches:
-      attempt.violations.filter(
-        event =>
-          tabTypes.includes(
-            event.type
-          )
-      ).length,
-
-    copiesAttempted:
-      attempt.violations.filter(
-        event =>
-          copyTypes.includes(
-            event.type
-          )
-      ).length,
-
-    penaltiesApplied:
-      attempt.penaltiesApplied ||
-      0,
-
-    violationCount:
-      attempt.violationCount ||
-      0,
-
-    violations:
-      attempt.violations ||
-      [],
-
-    autoSubmitted:
-      autoSubmitted,
-
-    forceSubmitted:
-      Boolean(
-        attempt.forceSubmitRequested
-      ),
-
-    timeTakenSeconds:
-      Math.round(
-        (
-          Date.now() -
-          attempt.startedAt
-        ) /
-        1000
-      ),
-
-    submittedAt:
-      serverTimestamp()
-
-  };
-
-
-  /*
-     Save question snapshot.
-  */
-
-  result.questionSnapshot =
-    questions.map(
-      (
-        question,
-        index
-      ) => ({
-
-        number:
-          index + 1,
-
-        id:
-          question.id,
-
-        subject:
-          question.__subject ||
-          "General",
-
-        question:
-          question.q ??
-          question.question,
-
-        options:
-          Array.isArray(
-            question.options
-          )
-            ? question.options
-            : [],
-
-        correctAnswer:
-          question.a ??
-          question.answer,
-
-        studentAnswer:
-          attempt.answers?.[
-            String(
-              question.id
-            )
-          ] ||
-          "Not answered"
-
-      })
-    );
-
-
+  if (attemptUnsubscribe) { attemptUnsubscribe(); attemptUnsubscribe = null; }
   try {
-
-    await setDoc(
-      doc(
-        db,
-        "results",
-        attemptId
-      ),
-      result
-    );
-
-
-    await updateDoc(
-      doc(
-        db,
-        "attempts",
-        attemptId
-      ),
-      {
-
-        status:
-          "submitted",
-
-        answers:
-          attempt.answers ||
-          {},
-
-        resultSummary:
-          calculated,
-
-        submittedAt:
-          serverTimestamp(),
-
-        forceSubmitCompleted:
-          Boolean(
-            attempt.forceSubmitRequested
-          ),
-
-        updatedAt:
-          serverTimestamp()
-
-      }
-    );
-
-
-    if (
-      document.fullscreenElement
-    ) {
-
-      document
-        .exitFullscreen()
-        .catch(
-          () => {}
-        );
-
-    }
-
-
-    showResult(
-      result
-    );
-
-
+    save();
+    await callSaveAnswers({ attemptId, answers: attempt.answers || {} });
+    await callSaveNavigation({ attemptId, currentIndex: current, review: Array.isArray(attempt.review) ? attempt.review : [], visited: {} });
+    const response = await callSubmitExam({ attemptId, autoSubmitted: Boolean(autoSubmitted) });
+    const result = response.data?.result;
+    if (!result) throw Error("The server did not return a final result.");
+    attempt = { ...attempt, status: result.status || "submitted" };
+    showResult(result);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   } catch (error) {
-
-    submitting =
-      false;
-
-
-    alert(
-      "The result could not be submitted. " +
-      "Check your internet connection and try again."
-    );
-
+    console.error("Secure submission error:", error);
+    submitting = false;
+    alert("The result could not be submitted.\n\n" + (error.message || "Check your internet connection and try again."));
   }
-
 }
 
-
-/* =========================================================
-   RESULT
-========================================================= */
 
 function showResult(
   result
@@ -2838,31 +2085,12 @@ $("feedbackBtn").onclick =
 
     try {
 
-      await updateDoc(
-        doc(
-          db,
-          "results",
-          attemptId
-        ),
-        {
-
-          rating,
-
-          doubt:
-            $("doubt")
-              .value
-              .trim(),
-
-          feedback:
-            $("feedback")
-              .value
-              .trim(),
-
-          feedbackAt:
-            serverTimestamp()
-
-        }
-      );
+      await callSaveFeedback({
+        attemptId,
+        rating,
+        doubt: $("doubt").value.trim(),
+        feedback: $("feedback").value.trim()
+      });
 
 
       $("feedbackMsg")
