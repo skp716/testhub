@@ -1,29 +1,144 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+
+    // ─────────────────────────────────────────────
+    // Helper functions
+    // ─────────────────────────────────────────────
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
     function admin() {
-      return signedIn() && exists(/databases/$(database)/documents/admin/$(request.auth.uid)) && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.active == true && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/admin/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/admin/$(request.auth.uid)
+        ).data.active == true
+        && get(
+          /databases/$(database)/documents/admin/$(request.auth.uid)
+        ).data.role in ['admin', 'super_admin'];
     }
-    match /admin/{uid} { allow read: if signedIn() && (request.auth.uid == uid || admin()); allow write: if admin(); }
-    match /exam_config/current_test { allow read: if signedIn(); allow write: if admin(); }
+
+    function isOwner() {
+      return signedIn()
+        && resource.data.ownerUid == request.auth.uid;
+    }
+
+    function isNewOwner() {
+      return signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+    }
+
+    // ─────────────────────────────────────────────
+    // Admin users
+    // ─────────────────────────────────────────────
+
+    match /admin/{uid} {
+      allow read: if signedIn()
+        && (request.auth.uid == uid || admin());
+
+      allow write: if admin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Exam configuration
+    // ─────────────────────────────────────────────
+
+    match /exam_config/{configId} {
+      allow read: if signedIn();
+      allow write: if admin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Attempts
+    // ─────────────────────────────────────────────
+
     match /attempts/{attemptId} {
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && request.resource.data.status == 'in_progress' && request.resource.data.email is string;
-      // A candidate checks the deterministic attempt ID before creating it.
-      // A missing document has no resource owner, so explicitly allow that GET.
-      allow get: if signedIn() && (resource == null || resource.data.ownerUid == request.auth.uid || admin());
+
+      // Candidate can create only their own in-progress attempt.
+      // Backend will create verified attempts in the final system.
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == 'in_progress'
+        && request.resource.data.email is string;
+
+      // Candidate can read only their own attempt.
+      // Admin can read all attempts.
+      allow get: if admin()
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+
       allow list: if admin();
-      allow update: if signedIn() && ((resource.data.ownerUid == request.auth.uid && request.resource.data.ownerUid == resource.data.ownerUid) || admin());
+
+      // Candidate can update only the limited fields used
+      // for saving answers and navigation.
+      // Ownership and protected fields cannot be changed.
+      allow update: if admin()
+        || (
+          signedIn()
+          && resource.data.ownerUid == request.auth.uid
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'answers',
+              'currentIndex',
+              'markedForReview',
+              'visited',
+              'lastSavedAt'
+            ])
+        );
+
+      // Only admin can delete attempts.
       allow delete: if admin();
     }
+
+    // ─────────────────────────────────────────────
+    // Results
+    // ─────────────────────────────────────────────
+
     match /results/{resultId} {
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && exists(/databases/$(database)/documents/attempts/$(resultId)) && get(/databases/$(database)/documents/attempts/$(resultId)).data.ownerUid == request.auth.uid;
-      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || admin());
-      allow update: if admin() || (signedIn() && resource.data.ownerUid == request.auth.uid
-        && request.resource.data.ownerUid == resource.data.ownerUid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'doubt', 'feedback', 'feedbackAt']));
+
+      // Candidates cannot create results directly.
+      // Backend/Admin will create verified results.
+      allow create: if admin();
+
+      // Candidate can read only their own result.
+      // Admin can read all results.
+      allow get: if admin()
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+
+      allow list: if admin();
+
+      // Candidate may update only feedback-related fields.
+      // Score, answers, marks, rank, etc. are protected.
+      allow update: if admin()
+        || (
+          signedIn()
+          && resource.data.ownerUid == request.auth.uid
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'rating',
+              'doubt',
+              'feedback',
+              'feedbackAt'
+            ])
+        );
+
       allow delete: if admin();
     }
-    match /{document=**} { allow read, write: if false; }
+
+    // ─────────────────────────────────────────────
+    // Default deny
+    // ─────────────────────────────────────────────
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
