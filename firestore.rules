@@ -3,10 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* =====================================================
-       ADMIN CHECK
-    ===================================================== */
-
     function isAdmin() {
       return request.auth != null
         && exists(
@@ -16,195 +12,41 @@ service cloud.firestore {
           /databases/$(database)/documents/admin/$(request.auth.uid)
         ).data.active == true
         && (
-          get(
-            /databases/$(database)/documents/admin/$(request.auth.uid)
-          ).data.role == "admin"
+          get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == "admin"
           ||
-          get(
-            /databases/$(database)/documents/admin/$(request.auth.uid)
-          ).data.role == "super_admin"
+          get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == "super_admin"
         );
     }
 
-
-    /* =====================================================
-       ADMIN DOCUMENTS
-    ===================================================== */
-
     match /admin/{uid} {
-
       allow read: if isAdmin();
-
-      allow create: if isAdmin();
-
-      allow update: if isAdmin();
-
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
-
-    /* =====================================================
-       EXAM CONFIG
-    ===================================================== */
-
     match /exam_config/{configId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
+    }
 
-      /*
-        Student needs to read only the active exam configuration.
-      */
-
-      allow read: if
-        request.auth != null;
-
-      /*
-        Only authorized admin can create/update/delete config.
-      */
+    match /attempts/{attemptId} {
+      allow read: if isAdmin()
+        || (
+          request.auth != null
+          && resource.data.ownerUid == request.auth.uid
+        );
 
       allow create, update, delete: if isAdmin();
     }
 
-
-    /* =====================================================
-       ATTEMPTS
-    ===================================================== */
-
-    match /attempts/{attemptId} {
-
-      /*
-        A logged-in student can create his/her own attempt.
-
-        ownerUid must match the authenticated Firebase UID.
-      */
-
-      allow create: if
-        request.auth != null
-        && request.resource.data.ownerUid ==
-           request.auth.uid;
-
-
-      /*
-        Student can read only his/her own attempt.
-        Admin can read every attempt.
-      */
-
-      allow read: if
-        isAdmin()
-        ||
-        (
-          request.auth != null
-          && resource.data.ownerUid ==
-             request.auth.uid
-        );
-
-
-      /*
-        Student can update only his/her own attempt.
-
-        This allows the fields used by the current student.js:
-        - answers
-        - review
-        - currentIndex
-        - violations
-        - violationCount
-        - penaltiesApplied
-        - questionIds
-        - updatedAt
-        - submittedAt
-        - status
-        - resultSummary
-        - questionSnapshot
-
-        Admin can update anything.
-      */
-
-      allow update: if
-        isAdmin()
-        ||
-        (
-          request.auth != null
-          && resource.data.ownerUid ==
-             request.auth.uid
-          && request.resource.data.ownerUid ==
-             resource.data.ownerUid
-        );
-
-
-      /*
-        Only admin can delete attempts.
-      */
-
-      allow delete: if isAdmin();
-    }
-
-
-    /* =====================================================
-       RESULTS
-    ===================================================== */
-
     match /results/{resultId} {
-
-      /*
-        Student can create only his/her own result.
-
-        ownerUid must match Firebase Auth UID.
-      */
-
-      allow create: if
-        request.auth != null
-        && request.resource.data.ownerUid ==
-           request.auth.uid;
-
-
-      /*
-        Student can read only his/her result.
-        Admin can read all results.
-      */
-
-      allow read: if
-        isAdmin()
-        ||
-        (
+      allow read: if isAdmin()
+        || (
           request.auth != null
-          && resource.data.ownerUid ==
-             request.auth.uid
+          && resource.data.ownerUid == request.auth.uid
         );
 
-
-      /*
-        Student can update only his/her own result.
-
-        Required for:
-        - rating
-        - doubt
-        - feedback
-        - feedbackAt
-
-        Admin can update anything.
-      */
-
-      allow update: if
-        isAdmin()
-        ||
-        (
-          request.auth != null
-          && resource.data.ownerUid ==
-             request.auth.uid
-          && request.resource.data.ownerUid ==
-             resource.data.ownerUid
-        );
-
-
-      /*
-        Only admin can permanently delete results.
-      */
-
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
-
-
-    /* =====================================================
-       DENY EVERYTHING ELSE
-    ===================================================== */
 
     match /{document=**} {
       allow read, write: if false;
