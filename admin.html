@@ -1,1 +1,1929 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TestHub Admin</title><style>:root{--p:#1e40af;--p2:#2563eb;--g:#10b981;--r:#dc2626;--o:#f59e0b;--bg:#f4f7fb;--ink:#172033;--muted:#64748b;--line:#dbe4f0}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Arial;background:radial-gradient(circle at 5% 0,#dbeafe 0,transparent 28%),radial-gradient(circle at 100% 100%,#e0e7ff 0,transparent 30%),linear-gradient(135deg,#f8fafc,#eef2ff);color:var(--ink)}button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}.login{max-width:430px;margin:10vh auto}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:18px;box-shadow:0 14px 42px #1e3a8a12}.top{position:sticky;top:0;z-index:20;background:linear-gradient(120deg,#081b44,#173b91);color:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;gap:15px}.top b{font-size:20px}.small{font-size:12px;color:#cbd5e1}.wrap{max-width:1450px;margin:auto;padding:20px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{position:relative;overflow:hidden}.stat:after{content:"";position:absolute;right:-30px;bottom:-30px;width:90px;height:90px;border-radius:50%;background:#dbeafe}.stat b{display:block;font-size:29px;color:#173b91;margin-top:6px}.muted{color:var(--muted);font-size:13px}.tabs{display:flex;gap:8px;overflow:auto;padding:5px;background:#dfe8f5;border-radius:13px;margin:18px 0}.tab{border:0;background:transparent;color:#526581}.tab.active{background:#fff;color:#173b91;box-shadow:0 2px 8px #1e3a8a22}.panel{display:none}.panel.active{display:block}h2{color:#173b91}h3{color:#173b91}label{display:block;margin:12px 0 6px;font-size:12px;font-weight:850;color:#1e3a8a;text-transform:uppercase}input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;outline:0}input:focus,select:focus{border-color:#2563eb;box-shadow:0 0 0 3px #2563eb22}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:850}.primary{background:var(--p2);color:#fff}.success{background:var(--g);color:#fff}.danger{background:var(--r);color:#fff}.warning{background:var(--o);color:#111827}.light{background:#e2e8f0;color:#1e3a8a}.outline{background:#fff;color:#1e40af;border:1px solid #9bb8e8}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:15px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.exam-choice{display:flex;gap:9px;flex-wrap:wrap;padding:10px 0}.exam-pill{display:flex;align-items:center;gap:8px;border:1px solid #cbd5e1;border-radius:11px;padding:12px 14px;background:#fff;font-weight:800;color:#334155}.exam-pill.active{background:#dbeafe;border-color:#3b82f6;color:#173b91}.exam-pill input{width:auto}.subbox{padding:16px;background:#f8fbff;border:1px solid #cfe0ff;border-radius:13px;margin-top:15px}.subject-row{display:grid;grid-template-columns:1.25fr .55fr 1fr .7fr auto;gap:10px;align-items:end;padding:13px;margin-top:9px;border:1px solid #d7e4f6;border-radius:11px;background:#fff}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}.radio-row{display:flex;gap:20px;flex-wrap:wrap;background:#eef4fb;border-radius:10px;padding:13px}.radio-row label,.check{display:flex;align-items:center;gap:8px;margin:0;text-transform:none;color:var(--ink)}.radio-row input,.check input{width:auto}.msg{margin-top:12px;padding:11px 13px;border-radius:10px;background:#eef6ff;color:#1e40af}.msg.error{background:#fef2f2;color:#991b1b}.msg.good{background:#ecfdf5;color:#065f46}.summary{margin-top:14px;padding:13px;border-radius:11px;background:#eef6ff;border:1px solid #bfdbfe;color:#274a84}.table{overflow:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;min-width:1050px}th,td{padding:12px;text-align:left;border-bottom:1px solid #e5eaf1;font-size:13px;white-space:nowrap}th{background:#f8fafc;color:#173b91;font-size:12px;text-transform:uppercase}.badge{padding:4px 9px;border-radius:999px;background:#e2e8f0;font-size:12px;font-weight:800}.good{background:#dcfce7;color:#166534}.bad{background:#fee2e2;color:#991b1b}.blue{background:#dbeafe;color:#1e40af}.modal{position:fixed;inset:0;z-index:50;background:#0008;display:grid;place-items:center;padding:15px}.modal-card{width:min(800px,100%);max-height:90vh;overflow:auto}@media(max-width:1050px){.stats,.grid4{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:1fr 1fr}.subject-row{grid-template-columns:1fr 1fr}}@media(max-width:680px){.top{align-items:flex-start;flex-direction:column}.wrap{padding:10px}.stats,.grid2,.grid3,.grid4,.subject-row{grid-template-columns:1fr}.card{padding:16px}}</style></head><body><main id="login" class="login card"><h1>TestHub Admin</h1><p class="muted">Only authorized administrators can continue.</p><form id="loginForm"><label>Email</label><input id="email" type="email" required><label>Password</label><input id="password" type="password" required><button id="loginBtn" class="btn primary" style="width:100%;margin-top:16px">Login</button></form><div id="loginMsg" class="msg hidden"></div></main><div id="app" class="hidden"><header class="top"><div><b id="adminTitle">TestHub Admin</b><div id="adminLabel" class="small">Administrator</div></div><div class="actions"><button id="refresh" class="btn light">Refresh</button><button id="logout" class="btn danger">Logout</button></div></header><main class="wrap"><section class="stats"><div class="card stat"><span class="muted">Submissions</span><b id="submissions">0</b></div><div class="card stat"><span class="muted">Active attempts</span><b id="active">0</b></div><div class="card stat"><span class="muted">Average score</span><b id="average">0</b></div><div class="card stat"><span class="muted">Average rating</span><b id="ratingAvg">0/5</b></div></section><nav class="tabs"><button class="btn tab active" data-panel="setup">⚙ Setup & Timer Config</button><button class="btn tab" data-panel="live">🟢 Live Attempts</button><button class="btn tab" data-panel="results">🏆 Leaderboard & Timing</button><button class="btn tab" data-panel="security">🛡 Security Analytics</button></nav><section id="setup" class="panel active"><div class="card"><h2>📚 Multi-Exam & Subject-wise Question Control</h2><p class="muted">All exam-specific question count, question source, question order and timer controls are managed here.</p><div class="grid3"><div><label>Exam Configuration</label><select id="examSelect"><option value="rrb_group_d">RRB Group D</option><option value="jharkhand_tet">Jharkhand TET</option><option value="ssc_gd">SSC GD</option></select></div><div><label>Per Exam Timer (Minutes) *</label><input id="durationMinutes" type="number" min="1" value="90"></div><div><label>Penalty / Violation *</label><input id="tabPenalty" type="number" min="0" step=".01" value="0"></div></div><div class="subbox"><h3>Active Exam(s)</h3><div class="exam-choice"><label class="exam-pill"><input class="active-exam" type="checkbox" value="rrb_group_d"> RRB GROUP D</label><label class="exam-pill"><input class="active-exam" type="checkbox" value="jharkhand_tet"> JHARKHAND TET</label><label class="exam-pill"><input class="active-exam" type="checkbox" value="ssc_gd"> SSC GD</label></div><span class="muted">Only selected exams will be marked active in the current exam configuration.</span></div><div class="subbox"><h3>Subject Sections</h3><div id="subjectRows"></div><div class="actions"><button id="addSubject" class="btn outline" type="button">＋ Add Subject</button></div></div><div id="examSummary" class="summary"></div><div class="actions"><button id="saveExamSettings" class="btn success" type="button">💾 Save Exam & Subject Settings</button></div><div id="subjectMsg" class="msg hidden"></div></div><div class="card"><h2>📍 Examination Center Access</h2><p class="muted">Only students with the active center code can enter.</p><div class="grid4"><div><label>Center Code *</label><input id="centerCode" placeholder="ACC-2026"></div><div><label>Institute Name *</label><input id="instituteName" placeholder="SAURAV COMPETITION"></div><div><label>Institute Location *</label><input id="instituteLocation" placeholder="DALTONGANJ"></div><div><label>Full Address</label><input id="fullAddress" placeholder="Full address"></div></div><div class="actions"><button id="activateCenter" class="btn success" type="button">🔑 Activate Center Code</button></div><div id="centerMsg" class="msg hidden"></div></div><div class="card"><h2>🗓 Test Availability & Upload Settings</h2><p class="muted">Controls the student entry period; the configured exam timer remains separate.</p><div class="grid3"><div><label>Overall Entry Start Time *</label><input id="windowStart" type="datetime-local"></div><div><label>Overall Entry Close Time *</label><input id="windowEnd" type="datetime-local"></div><div><label>Maximum Tab Switches *</label><input id="maxTabSwitches" type="number" min="1" max="50" value="5"></div></div><label>Question Upload Method</label><div class="radio-row"><label><input type="radio" name="uploadMethod" value="live_form" checked> LIVE FORM</label><label><input type="radio" name="uploadMethod" value="custom_code"> CUSTOM CODE</label><label><input type="radio" name="uploadMethod" value="ms_word_parse"> MS WORD PARSE</label></div><div class="actions"><button id="saveAvailability" class="btn success" type="button">🔒 Save Availability & Upload Settings</button></div><div id="availabilityMsg" class="msg hidden"></div></div><div class="card"><h2>🏢 Institute Branding</h2><div class="grid2"><div><label>Institute Logo URL</label><input id="instituteLogo" type="url" placeholder="https://..."><label>Or Upload Logo (max 500 KB)</label><input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp"><button id="clearLogo" class="btn light" type="button" style="margin-top:12px">Remove logo</button></div><div><label>Logo Preview</label><img id="logoPreview" class="hidden" style="width:110px;height:110px;object-fit:contain;border:1px dashed #93c5fd;border-radius:12px;padding:8px"></div></div></div><div class="card"><h2>🎯 Marking & Advanced Security</h2><div class="grid3"><div><label>Wrong-answer deduction</label><input id="negativeMarking" type="number" min="0" step=".01" value="0"></div><div><label>Violation response</label><select id="replaceQuestionOnSwitch"><option value="true">Replace question</option><option value="false">Keep question</option></select></div><div><label>Exam Status</label><select id="examActive"><option value="true">Active</option><option value="false">Inactive</option></select></div></div><div class="summary">Fullscreen startup has a protected initialization period. The first fullscreen transition event is not counted as a violation or penalty.</div></div></section><section id="live" class="panel"><div class="card"><h2>🟢 Live Attempts</h2><div class="table"><table><thead><tr><th>Name</th><th>Email</th><th>Exam</th><th>Status</th><th>Question</th><th>Violations</th><th>Penalty</th><th>Updated</th></tr></thead><tbody id="attemptRows"></tbody></table></div></div></section><section id="results" class="panel"><div class="card"><h2>🏆 Live Leaderboard & Submission Time Logs</h2><div class="filters" style="display:flex;gap:9px;flex-wrap:wrap;margin:15px 0"><input id="resultSearch" placeholder="Search name / email / exam"><select id="resultSort"><option value="score">Highest Score</option><option value="newest">Newest Submission</option><option value="rating">Highest Rating</option></select><button id="csv" class="btn warning">⬇ Download CSV</button><button id="clearResults" class="btn danger">Clear Results</button></div><div class="table"><table><thead><tr><th>Rank</th><th>Student Details</th><th>Exam</th><th>Center</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Attempted</th><th>Submitted At</th><th>Rating</th><th>Actions</th></tr></thead><tbody id="resultRows"></tbody></table></div></div></section><section id="security" class="panel"><div class="card"><h2>🛡 Anti-Cheating & Security Analytics Tracker</h2><div class="stats"><div class="card stat"><span class="muted">Flagged students</span><b id="violations">0</b></div><div class="card stat"><span class="muted">Tab/fullscreen</span><b id="tabTotal">0</b></div><div class="card stat"><span class="muted">Copy/other</span><b id="copyTotal">0</b></div><div class="card stat"><span class="muted">Total penalty</span><b id="penaltyTotal">0</b></div></div><div class="table"><table><thead><tr><th>Student</th><th>Email</th><th>Tabs</th><th>Copy</th><th>Total</th><th>Penalty</th><th>Auto submitted</th></tr></thead><tbody id="securityRows"></tbody></table></div></div></section></main></div><div id="detailModal" class="modal hidden"><div class="card modal-card"><button id="closeModal" class="btn light close" style="float:right">Close</button><h2>Result Details</h2><div id="detailContent"></div></div></div><script type="module" src="./admin.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+
+  <title>TestHub Admin</title>
+
+
+  <style>
+
+    :root{
+      --p:#1e40af;
+      --p2:#2563eb;
+      --g:#10b981;
+      --r:#dc2626;
+      --o:#f59e0b;
+      --bg:#f4f7fb;
+      --ink:#172033;
+      --muted:#64748b;
+      --line:#dbe4f0;
+      --white:#ffffff;
+      --soft:#f8fafc;
+    }
+
+    *{
+      box-sizing:border-box;
+    }
+
+    body{
+      margin:0;
+      font-family:Inter,system-ui,Arial,sans-serif;
+      background:
+        radial-gradient(
+          circle at 5% 0,
+          #dbeafe 0,
+          transparent 28%
+        ),
+        radial-gradient(
+          circle at 100% 100%,
+          #e0e7ff 0,
+          transparent 30%
+        ),
+        linear-gradient(
+          135deg,
+          #f8fafc,
+          #eef2ff
+        );
+      color:var(--ink);
+    }
+
+    button,
+    input,
+    select{
+      font:inherit;
+    }
+
+    button{
+      cursor:pointer;
+    }
+
+    button:disabled{
+      cursor:not-allowed;
+      opacity:.6;
+    }
+
+    .hidden{
+      display:none!important;
+    }
+
+    .login{
+      width:min(430px,calc(100% - 24px));
+      margin:10vh auto;
+    }
+
+    .card{
+      background:var(--white);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:22px;
+      margin-bottom:18px;
+      box-shadow:
+        0 14px 42px #1e3a8a12;
+    }
+
+    .top{
+      position:sticky;
+      top:0;
+      z-index:20;
+      background:
+        linear-gradient(
+          120deg,
+          #081b44,
+          #173b91
+        );
+      color:#fff;
+      padding:14px 22px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:15px;
+    }
+
+    .top b{
+      font-size:20px;
+    }
+
+    .small{
+      font-size:12px;
+      color:#cbd5e1;
+    }
+
+    .wrap{
+      max-width:1450px;
+      margin:auto;
+      padding:20px;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:
+        repeat(4,1fr);
+      gap:14px;
+    }
+
+    .stat{
+      position:relative;
+      overflow:hidden;
+    }
+
+    .stat:after{
+      content:"";
+      position:absolute;
+      right:-30px;
+      bottom:-30px;
+      width:90px;
+      height:90px;
+      border-radius:50%;
+      background:#dbeafe;
+    }
+
+    .stat b{
+      display:block;
+      font-size:29px;
+      color:#173b91;
+      margin-top:6px;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      overflow:auto;
+      padding:5px;
+      background:#dfe8f5;
+      border-radius:13px;
+      margin:18px 0;
+    }
+
+    .tab{
+      border:0;
+      background:transparent;
+      color:#526581;
+      white-space:nowrap;
+    }
+
+    .tab.active{
+      background:#fff;
+      color:#173b91;
+      box-shadow:
+        0 2px 8px #1e3a8a22;
+    }
+
+    .panel{
+      display:none;
+    }
+
+    .panel.active{
+      display:block;
+    }
+
+    h2,
+    h3{
+      color:#173b91;
+    }
+
+    label{
+      display:block;
+      margin:12px 0 6px;
+      font-size:12px;
+      font-weight:850;
+      color:#1e3a8a;
+      text-transform:uppercase;
+    }
+
+    input,
+    select{
+      width:100%;
+      padding:11px 12px;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      outline:0;
+      background:#fff;
+    }
+
+    input:focus,
+    select:focus{
+      border-color:#2563eb;
+      box-shadow:
+        0 0 0 3px #2563eb22;
+    }
+
+    .btn{
+      border:0;
+      border-radius:10px;
+      padding:10px 14px;
+      font-weight:850;
+    }
+
+    .primary{
+      background:var(--p2);
+      color:#fff;
+    }
+
+    .success{
+      background:var(--g);
+      color:#fff;
+    }
+
+    .danger{
+      background:var(--r);
+      color:#fff;
+    }
+
+    .warning{
+      background:var(--o);
+      color:#111827;
+    }
+
+    .light{
+      background:#e2e8f0;
+      color:#1e3a8a;
+    }
+
+    .outline{
+      background:#fff;
+      color:#1e40af;
+      border:1px solid #9bb8e8;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:15px;
+    }
+
+    .grid3{
+      display:grid;
+      grid-template-columns:
+        repeat(3,1fr);
+      gap:15px;
+    }
+
+    .grid4{
+      display:grid;
+      grid-template-columns:
+        repeat(4,1fr);
+      gap:15px;
+    }
+
+    .exam-choice{
+      display:flex;
+      gap:9px;
+      flex-wrap:wrap;
+      padding:10px 0;
+    }
+
+    .exam-pill{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid #cbd5e1;
+      border-radius:11px;
+      padding:12px 14px;
+      background:#fff;
+      font-weight:800;
+      color:#334155;
+    }
+
+    .exam-pill.active{
+      background:#dbeafe;
+      border-color:#3b82f6;
+      color:#173b91;
+    }
+
+    .exam-pill input{
+      width:auto;
+    }
+
+    .subbox{
+      padding:16px;
+      background:#f8fbff;
+      border:1px solid #cfe0ff;
+      border-radius:13px;
+      margin-top:15px;
+    }
+
+    .subject-row{
+      display:grid;
+      grid-template-columns:
+        1.25fr
+        .55fr
+        1fr
+        .7fr
+        auto;
+      gap:10px;
+      align-items:end;
+      padding:13px;
+      margin-top:9px;
+      border:1px solid #d7e4f6;
+      border-radius:11px;
+      background:#fff;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:9px;
+      margin-top:16px;
+    }
+
+    .radio-row{
+      display:flex;
+      gap:20px;
+      flex-wrap:wrap;
+      background:#eef4fb;
+      border-radius:10px;
+      padding:13px;
+    }
+
+    .radio-row label,
+    .check{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0;
+      text-transform:none;
+      color:var(--ink);
+    }
+
+    .radio-row input,
+    .check input{
+      width:auto;
+    }
+
+    .msg{
+      margin-top:12px;
+      padding:11px 13px;
+      border-radius:10px;
+      background:#eef6ff;
+      color:#1e40af;
+    }
+
+    .msg.error{
+      background:#fef2f2;
+      color:#991b1b;
+    }
+
+    .msg.good{
+      background:#ecfdf5;
+      color:#065f46;
+    }
+
+    .summary{
+      margin-top:14px;
+      padding:13px;
+      border-radius:11px;
+      background:#eef6ff;
+      border:1px solid #bfdbfe;
+      color:#274a84;
+      line-height:1.65;
+    }
+
+    .filters{
+      display:grid;
+      grid-template-columns:
+        1.4fr
+        .9fr
+        .9fr
+        auto
+        auto;
+      gap:9px;
+      margin:15px 0;
+      align-items:end;
+    }
+
+    .filter-field label{
+      margin-top:0;
+    }
+
+    .table{
+      overflow:auto;
+      border:1px solid var(--line);
+      border-radius:12px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1100px;
+    }
+
+    th,
+    td{
+      padding:12px;
+      text-align:left;
+      border-bottom:1px solid #e5eaf1;
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    th{
+      background:#f8fafc;
+      color:#173b91;
+      font-size:12px;
+      text-transform:uppercase;
+    }
+
+    tr:last-child td{
+      border-bottom:0;
+    }
+
+    .rank-cell{
+      font-size:16px;
+      font-weight:900;
+      color:#173b91;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      padding:4px 9px;
+      border-radius:999px;
+      background:#e2e8f0;
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .good{
+      background:#dcfce7;
+      color:#166534;
+    }
+
+    .bad{
+      background:#fee2e2;
+      color:#991b1b;
+    }
+
+    .blue{
+      background:#dbeafe;
+      color:#1e40af;
+    }
+
+    .amber{
+      background:#fef3c7;
+      color:#92400e;
+    }
+
+    .empty{
+      text-align:center;
+      padding:30px!important;
+      color:var(--muted);
+    }
+
+    .leaderboard-top{
+      display:grid;
+      grid-template-columns:
+        repeat(4,1fr);
+      gap:12px;
+      margin-bottom:16px;
+    }
+
+    .mini-stat{
+      background:#f8fafc;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:14px;
+    }
+
+    .mini-stat strong{
+      display:block;
+      font-size:22px;
+      margin-top:4px;
+      color:#173b91;
+    }
+
+    .detail-grid{
+      display:grid;
+      grid-template-columns:
+        repeat(4,1fr);
+      gap:10px;
+      margin:16px 0;
+    }
+
+    .detail-box{
+      background:#f8fafc;
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:12px;
+    }
+
+    .detail-box span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .detail-box strong{
+      display:block;
+      margin-top:4px;
+      font-size:18px;
+    }
+
+    .subject-table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:12px;
+    }
+
+    .subject-table th,
+    .subject-table td{
+      border:1px solid #e5e7eb;
+      padding:9px;
+      font-size:12px;
+      white-space:normal;
+    }
+
+    .event{
+      padding:9px 10px;
+      border-left:4px solid #2563eb;
+      background:#f8fafc;
+      border-radius:7px;
+      margin-bottom:8px;
+      font-size:13px;
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      z-index:50;
+      background:#0008;
+      display:grid;
+      place-items:center;
+      padding:15px;
+    }
+
+    .modal-card{
+      width:min(900px,100%);
+      max-height:90vh;
+      overflow:auto;
+    }
+
+    .modal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:15px;
+    }
+
+    .result-title{
+      margin:0;
+    }
+
+    .section-block{
+      margin-top:22px;
+      padding-top:18px;
+      border-top:1px solid var(--line);
+    }
+
+    @media(max-width:1100px){
+
+      .filters{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .leaderboard-top{
+        grid-template-columns:
+          repeat(2,1fr);
+      }
+
+      .detail-grid{
+        grid-template-columns:
+          repeat(2,1fr);
+      }
+
+    }
+
+    @media(max-width:1050px){
+
+      .stats,
+      .grid4{
+        grid-template-columns:
+          repeat(2,1fr);
+      }
+
+      .grid3{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .subject-row{
+        grid-template-columns:1fr 1fr;
+      }
+
+    }
+
+    @media(max-width:680px){
+
+      .top{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
+      .wrap{
+        padding:10px;
+      }
+
+      .stats,
+      .grid2,
+      .grid3,
+      .grid4,
+      .subject-row,
+      .filters,
+      .leaderboard-top,
+      .detail-grid{
+        grid-template-columns:1fr;
+      }
+
+      .card{
+        padding:16px;
+      }
+
+      .tabs{
+        border-radius:10px;
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+  <!-- =======================================================
+       ADMIN LOGIN
+  ======================================================== -->
+
+  <main
+    id="login"
+    class="login card"
+  >
+
+    <h1>
+      TestHub Admin
+    </h1>
+
+    <p class="muted">
+      Only authorized administrators can continue.
+    </p>
+
+
+    <form id="loginForm">
+
+      <label for="email">
+        Email
+      </label>
+
+      <input
+        id="email"
+        type="email"
+        autocomplete="username"
+        required
+      >
+
+
+      <label for="password">
+        Password
+      </label>
+
+      <input
+        id="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      >
+
+
+      <button
+        id="loginBtn"
+        class="btn primary"
+        style="width:100%;margin-top:16px"
+      >
+        Login
+      </button>
+
+    </form>
+
+
+    <div
+      id="loginMsg"
+      class="msg hidden"
+    ></div>
+
+  </main>
+
+
+
+  <!-- =======================================================
+       ADMIN APP
+  ======================================================== -->
+
+  <div
+    id="app"
+    class="hidden"
+  >
+
+
+    <header class="top">
+
+      <div>
+
+        <b id="adminTitle">
+          TestHub Admin
+        </b>
+
+        <div
+          id="adminLabel"
+          class="small"
+        >
+          Administrator
+        </div>
+
+      </div>
+
+
+      <div class="actions">
+
+        <button
+          id="refresh"
+          class="btn light"
+        >
+          Refresh
+        </button>
+
+        <button
+          id="logout"
+          class="btn danger"
+        >
+          Logout
+        </button>
+
+      </div>
+
+    </header>
+
+
+
+    <main class="wrap">
+
+
+      <!-- =====================================================
+           TOP STATS
+      ====================================================== -->
+
+      <section class="stats">
+
+        <div class="card stat">
+
+          <span class="muted">
+            Submissions
+          </span>
+
+          <b id="submissions">
+            0
+          </b>
+
+        </div>
+
+
+        <div class="card stat">
+
+          <span class="muted">
+            Active attempts
+          </span>
+
+          <b id="active">
+            0
+          </b>
+
+        </div>
+
+
+        <div class="card stat">
+
+          <span class="muted">
+            Average score
+          </span>
+
+          <b id="average">
+            0
+          </b>
+
+        </div>
+
+
+        <div class="card stat">
+
+          <span class="muted">
+            Average rating
+          </span>
+
+          <b id="ratingAvg">
+            0/5
+          </b>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- =====================================================
+           TABS
+      ====================================================== -->
+
+      <nav class="tabs">
+
+        <button
+          class="btn tab active"
+          data-panel="setup"
+        >
+          ⚙ Setup & Timer Config
+        </button>
+
+
+        <button
+          class="btn tab"
+          data-panel="live"
+        >
+          🟢 Live Attempts
+        </button>
+
+
+        <button
+          class="btn tab"
+          data-panel="results"
+        >
+          🏆 Leaderboard & Timing
+        </button>
+
+
+        <button
+          class="btn tab"
+          data-panel="security"
+        >
+          🛡 Security Analytics
+        </button>
+
+      </nav>
+
+
+
+      <!-- =====================================================
+           SETUP
+      ====================================================== -->
+
+      <section
+        id="setup"
+        class="panel active"
+      >
+
+
+        <div class="card">
+
+          <h2>
+            📚 Multi-Exam & Subject-wise Question Control
+          </h2>
+
+          <p class="muted">
+            All exam-specific question count, question source,
+            question order and timer controls are managed here.
+          </p>
+
+
+          <div class="grid3">
+
+            <div>
+
+              <label>
+                Exam Configuration
+              </label>
+
+              <select id="examSelect">
+
+                <option value="rrb_group_d">
+                  RRB Group D
+                </option>
+
+                <option value="jharkhand_tet">
+                  Jharkhand TET
+                </option>
+
+                <option value="ssc_gd">
+                  SSC GD
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Per Exam Timer (Minutes) *
+              </label>
+
+              <input
+                id="durationMinutes"
+                type="number"
+                min="1"
+                value="90"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Penalty / Violation *
+              </label>
+
+              <input
+                id="tabPenalty"
+                type="number"
+                min="0"
+                step=".01"
+                value="0"
+              >
+
+            </div>
+
+          </div>
+
+
+          <div class="subbox">
+
+            <h3>
+              Active Exam(s)
+            </h3>
+
+            <div class="exam-choice">
+
+              <label class="exam-pill">
+
+                <input
+                  class="active-exam"
+                  type="checkbox"
+                  value="rrb_group_d"
+                >
+
+                RRB GROUP D
+
+              </label>
+
+
+              <label class="exam-pill">
+
+                <input
+                  class="active-exam"
+                  type="checkbox"
+                  value="jharkhand_tet"
+                >
+
+                JHARKHAND TET
+
+              </label>
+
+
+              <label class="exam-pill">
+
+                <input
+                  class="active-exam"
+                  type="checkbox"
+                  value="ssc_gd"
+                >
+
+                SSC GD
+
+              </label>
+
+            </div>
+
+            <span class="muted">
+              Only selected exams will be available to students.
+            </span>
+
+          </div>
+
+
+          <div class="subbox">
+
+            <h3>
+              Subject Sections
+            </h3>
+
+            <div id="subjectRows"></div>
+
+
+            <div class="actions">
+
+              <button
+                id="addSubject"
+                class="btn outline"
+                type="button"
+              >
+                ＋ Add Subject
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <div
+            id="examSummary"
+            class="summary"
+          ></div>
+
+
+          <div class="actions">
+
+            <button
+              id="saveExamSettings"
+              class="btn success"
+              type="button"
+            >
+              💾 Save Exam & Subject Settings
+            </button>
+
+          </div>
+
+
+          <div
+            id="subjectMsg"
+            class="msg hidden"
+          ></div>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <h2>
+            📍 Examination Center Access
+          </h2>
+
+          <p class="muted">
+            Only students with the active center code can enter.
+          </p>
+
+
+          <div class="grid4">
+
+            <div>
+
+              <label>
+                Center Code *
+              </label>
+
+              <input
+                id="centerCode"
+                placeholder="ACC-2026"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Institute Name *
+              </label>
+
+              <input
+                id="instituteName"
+                placeholder="SAURAV COMPETITION"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Institute Location *
+              </label>
+
+              <input
+                id="instituteLocation"
+                placeholder="DALTONGANJ"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Full Address
+              </label>
+
+              <input
+                id="fullAddress"
+                placeholder="Full address"
+              >
+
+            </div>
+
+          </div>
+
+
+          <div class="actions">
+
+            <button
+              id="activateCenter"
+              class="btn success"
+              type="button"
+            >
+              🔑 Activate Center Code
+            </button>
+
+          </div>
+
+
+          <div
+            id="centerMsg"
+            class="msg hidden"
+          ></div>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <h2>
+            🗓 Test Availability & Upload Settings
+          </h2>
+
+          <p class="muted">
+            Controls student entry period; exam timer remains separate.
+          </p>
+
+
+          <div class="grid3">
+
+            <div>
+
+              <label>
+                Overall Entry Start Time *
+              </label>
+
+              <input
+                id="windowStart"
+                type="datetime-local"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Overall Entry Close Time *
+              </label>
+
+              <input
+                id="windowEnd"
+                type="datetime-local"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Maximum Tab Switches *
+              </label>
+
+              <input
+                id="maxTabSwitches"
+                type="number"
+                min="1"
+                max="50"
+                value="5"
+              >
+
+            </div>
+
+          </div>
+
+
+          <label>
+            Question Upload Method
+          </label>
+
+
+          <div class="radio-row">
+
+            <label>
+              <input
+                type="radio"
+                name="uploadMethod"
+                value="live_form"
+                checked
+              >
+              LIVE FORM
+            </label>
+
+
+            <label>
+              <input
+                type="radio"
+                name="uploadMethod"
+                value="custom_code"
+              >
+              CUSTOM CODE
+            </label>
+
+
+            <label>
+              <input
+                type="radio"
+                name="uploadMethod"
+                value="ms_word_parse"
+              >
+              MS WORD PARSE
+            </label>
+
+          </div>
+
+
+          <div class="actions">
+
+            <button
+              id="saveAvailability"
+              class="btn success"
+              type="button"
+            >
+              🔒 Save Availability & Upload Settings
+            </button>
+
+          </div>
+
+
+          <div
+            id="availabilityMsg"
+            class="msg hidden"
+          ></div>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <h2>
+            🏢 Institute Branding
+          </h2>
+
+
+          <div class="grid2">
+
+            <div>
+
+              <label>
+                Institute Logo URL
+              </label>
+
+              <input
+                id="instituteLogo"
+                type="url"
+                placeholder="https://..."
+              >
+
+
+              <label>
+                Or Upload Logo (max 500 KB)
+              </label>
+
+              <input
+                id="logoFile"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+              >
+
+
+              <button
+                id="clearLogo"
+                class="btn light"
+                type="button"
+                style="margin-top:12px"
+              >
+                Remove logo
+              </button>
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Logo Preview
+              </label>
+
+              <img
+                id="logoPreview"
+                class="hidden"
+                style="
+                  width:110px;
+                  height:110px;
+                  object-fit:contain;
+                  border:1px dashed #93c5fd;
+                  border-radius:12px;
+                  padding:8px
+                "
+              >
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <h2>
+            🎯 Marking & Advanced Security
+          </h2>
+
+
+          <div class="grid3">
+
+            <div>
+
+              <label>
+                Wrong-answer deduction
+              </label>
+
+              <input
+                id="negativeMarking"
+                type="number"
+                min="0"
+                step=".01"
+                value="0"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Violation response
+              </label>
+
+              <select id="replaceQuestionOnSwitch">
+
+                <option value="true">
+                  Replace question
+                </option>
+
+                <option value="false">
+                  Keep question
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Exam Status
+              </label>
+
+              <select id="examActive">
+
+                <option value="true">
+                  Active
+                </option>
+
+                <option value="false">
+                  Inactive
+                </option>
+
+              </select>
+
+            </div>
+
+          </div>
+
+
+          <div class="summary">
+
+            Fullscreen startup has a protected initialization
+            period. The initial fullscreen transition is not
+            counted as a student violation.
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- =====================================================
+           LIVE ATTEMPTS
+      ====================================================== -->
+
+      <section
+        id="live"
+        class="panel"
+      >
+
+        <div class="card">
+
+          <h2>
+            🟢 Live Attempts
+          </h2>
+
+
+          <div class="table">
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Name
+                  </th>
+
+                  <th>
+                    Email
+                  </th>
+
+                  <th>
+                    Exam
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                  <th>
+                    Question
+                  </th>
+
+                  <th>
+                    Violations
+                  </th>
+
+                  <th>
+                    Penalty
+                  </th>
+
+                  <th>
+                    Updated
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody
+                id="attemptRows"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- =====================================================
+           RESULTS & LEADERBOARD
+      ====================================================== -->
+
+      <section
+        id="results"
+        class="panel"
+      >
+
+        <div class="card">
+
+          <h2>
+            🏆 Leaderboard & Submission Time Logs
+          </h2>
+
+
+          <div class="leaderboard-top">
+
+            <div class="mini-stat">
+
+              <span class="muted">
+                Filtered submissions
+              </span>
+
+              <strong id="filteredCount">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="mini-stat">
+
+              <span class="muted">
+                Highest score
+              </span>
+
+              <strong id="highestScore">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="mini-stat">
+
+              <span class="muted">
+                Average score
+              </span>
+
+              <strong id="filteredAverage">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="mini-stat">
+
+              <span class="muted">
+                Security flagged
+              </span>
+
+              <strong id="filteredFlags">
+                0
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="filters">
+
+            <div class="filter-field">
+
+              <label>
+                Search
+              </label>
+
+              <input
+                id="resultSearch"
+                placeholder="Search name / email / exam"
+              >
+
+            </div>
+
+
+            <div class="filter-field">
+
+              <label>
+                Exam
+              </label>
+
+              <select id="examFilter">
+
+                <option value="">
+                  All Exams
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div class="filter-field">
+
+              <label>
+                Sort
+              </label>
+
+              <select id="resultSort">
+
+                <option value="score">
+                  Highest Score
+                </option>
+
+                <option value="newest">
+                  Newest Submission
+                </option>
+
+                <option value="rating">
+                  Highest Rating
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <button
+              id="csv"
+              class="btn warning"
+            >
+              ⬇ Download CSV
+            </button>
+
+
+            <button
+              id="clearResults"
+              class="btn danger"
+            >
+              Clear Results
+            </button>
+
+          </div>
+
+
+          <div class="table">
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Rank
+                  </th>
+
+                  <th>
+                    Student Details
+                  </th>
+
+                  <th>
+                    Exam
+                  </th>
+
+                  <th>
+                    Center
+                  </th>
+
+                  <th>
+                    Score
+                  </th>
+
+                  <th>
+                    Correct
+                  </th>
+
+                  <th>
+                    Wrong
+                  </th>
+
+                  <th>
+                    Attempted
+                  </th>
+
+                  <th>
+                    Submitted At
+                  </th>
+
+                  <th>
+                    Rating
+                  </th>
+
+                  <th>
+                    Actions
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody
+                id="resultRows"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- =====================================================
+           SECURITY
+      ====================================================== -->
+
+      <section
+        id="security"
+        class="panel"
+      >
+
+        <div class="card">
+
+          <h2>
+            🛡 Anti-Cheating & Security Analytics
+          </h2>
+
+
+          <div class="stats">
+
+            <div class="card stat">
+
+              <span class="muted">
+                Flagged students
+              </span>
+
+              <b id="violations">
+                0
+              </b>
+
+            </div>
+
+
+            <div class="card stat">
+
+              <span class="muted">
+                Tab/fullscreen
+              </span>
+
+              <b id="tabTotal">
+                0
+              </b>
+
+            </div>
+
+
+            <div class="card stat">
+
+              <span class="muted">
+                Copy/other
+              </span>
+
+              <b id="copyTotal">
+                0
+              </b>
+
+            </div>
+
+
+            <div class="card stat">
+
+              <span class="muted">
+                Total penalty
+              </span>
+
+              <b id="penaltyTotal">
+                0
+              </b>
+
+            </div>
+
+          </div>
+
+
+          <div class="table">
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Student
+                  </th>
+
+                  <th>
+                    Email
+                  </th>
+
+                  <th>
+                    Tabs
+                  </th>
+
+                  <th>
+                    Copy
+                  </th>
+
+                  <th>
+                    Total
+                  </th>
+
+                  <th>
+                    Penalty
+                  </th>
+
+                  <th>
+                    Auto submitted
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody
+                id="securityRows"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+
+
+  <!-- =======================================================
+       RESULT DETAIL MODAL
+  ======================================================== -->
+
+  <div
+    id="detailModal"
+    class="modal hidden"
+  >
+
+    <div class="card modal-card">
+
+      <div class="modal-head">
+
+        <div>
+
+          <h2
+            id="detailTitle"
+            class="result-title"
+          >
+            Result Details
+          </h2>
+
+          <div
+            id="detailSubtitle"
+            class="muted"
+          ></div>
+
+        </div>
+
+
+        <button
+          id="closeModal"
+          class="btn light"
+          type="button"
+        >
+          Close
+        </button>
+
+      </div>
+
+
+      <div
+        id="detailContent"
+      ></div>
+
+    </div>
+
+  </div>
+
+
+  <script
+    type="module"
+    src="./admin.js"
+  ></script>
+
+</body>
+
+</html>
