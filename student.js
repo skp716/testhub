@@ -23,7 +23,7 @@ import {
 
 
 /* =========================================================
-   FIREBASE
+   FIREBASE CONFIG
 ========================================================= */
 
 const firebaseConfig = {
@@ -45,8 +45,7 @@ const db =
   getFirestore(app);
 
 const $ =
-  id =>
-    document.getElementById(id);
+  id => document.getElementById(id);
 
 
 /* =========================================================
@@ -65,20 +64,23 @@ let attemptId = "";
 
 let current = 0;
 
-let timerHandle;
+let timerHandle = null;
 
-let monitor;
+let monitor = null;
 
 let submitting = false;
 
-let pendingCandidate;
+let pendingCandidate = null;
 
 let rating = 0;
 
 
 /*
-  Security startup protection.
-  First fullscreen initialization is NOT a violation.
+  Security startup protection
+
+  These variables are specifically used to prevent
+  the first fullscreen initialization event from
+  becoming a false violation.
 */
 
 let securityReady = false;
@@ -123,7 +125,8 @@ const shuffle =
 
       const j =
         Math.floor(
-          Math.random() * (i + 1)
+          Math.random() *
+          (i + 1)
         );
 
       [
@@ -165,7 +168,7 @@ async function hash(value) {
 
 
 /* =========================================================
-   MESSAGE
+   LOGIN MESSAGE
 ========================================================= */
 
 function message(
@@ -192,7 +195,7 @@ function message(
 
 
 /* =========================================================
-   BRAND
+   BRANDING
 ========================================================= */
 
 function applyBrand() {
@@ -203,23 +206,29 @@ function applyBrand() {
       ?.trim() ||
     "TestHub";
 
+
   $("instituteName")
     .textContent =
       name;
+
 
   document.title =
     `${name} | Secure Examination`;
 
 
-  if (config.instituteLogo) {
+  if (
+    config.instituteLogo
+  ) {
 
     $("loginLogo")
       .src =
         config.instituteLogo;
 
+
     $("loginLogo")
       .classList
       .remove("hidden");
+
 
     $("loginFallback")
       .classList
@@ -229,7 +238,7 @@ function applyBrand() {
 
 
 /* =========================================================
-   LOAD CONFIG
+   LOAD EXAM CONFIG
 ========================================================= */
 
 async function loadConfig() {
@@ -245,25 +254,33 @@ async function loadConfig() {
         )
       );
 
-    if (!snapshot.exists()) {
+
+    if (
+      !snapshot.exists()
+    ) {
 
       throw new Error(
         "The exam is not configured yet."
       );
     }
 
+
     config =
       snapshot.data();
 
+
     applyBrand();
+
 
     const now =
       Date.now();
+
 
     const start =
       asMillis(
         config.windowStart
       );
+
 
     const end =
       asMillis(
@@ -289,7 +306,9 @@ async function loadConfig() {
       throw new Error(
         `The exam will start on ${
           new Date(start)
-            .toLocaleString("en-IN")
+            .toLocaleString(
+              "en-IN"
+            )
         }.`
       );
     }
@@ -321,7 +340,8 @@ async function loadConfig() {
 
 
     $("continueBtn")
-      .disabled = false;
+      .disabled =
+        false;
 
   } catch (error) {
 
@@ -337,7 +357,7 @@ async function loadConfig() {
 
 
 /* =========================================================
-   AUTH
+   AUTHENTICATION
 ========================================================= */
 
 onAuthStateChanged(
@@ -351,25 +371,28 @@ onAuthStateChanged(
       return;
     }
 
+
     signInAnonymously(auth)
-      .catch(error => {
+      .catch(
+        error => {
 
-        $("examInfo")
-          .textContent =
-            "Enable Firebase Anonymous Authentication: " +
-            error.message;
+          $("examInfo")
+            .textContent =
+              "Enable Firebase Anonymous Authentication: " +
+              error.message;
 
-        $("examInfo")
-          .classList
-          .add("error");
-      });
+          $("examInfo")
+            .classList
+            .add("error");
+        }
+      );
 
   }
 );
 
 
 /* =========================================================
-   CANDIDATE LOGIN
+   CANDIDATE FORM
 ========================================================= */
 
 $("candidateForm").onsubmit =
@@ -377,10 +400,12 @@ $("candidateForm").onsubmit =
 
     event.preventDefault();
 
+
     const name =
       $("candidateName")
         .value
         .trim();
+
 
     const email =
       normalizeEmail(
@@ -388,13 +413,17 @@ $("candidateForm").onsubmit =
           .value
       );
 
+
     const centerCode =
       $("centerCode")
         .value
         .trim();
 
 
-    if (!name || !email) {
+    if (
+      !name ||
+      !email
+    ) {
 
       return message(
         "Full name and email are required.",
@@ -425,8 +454,8 @@ $("candidateForm").onsubmit =
 
 
     $("configSummary")
-      .innerHTML = `
-
+      .innerHTML =
+      `
         <div>
           <b>
             ${
@@ -471,13 +500,13 @@ $("candidateForm").onsubmit =
           <br>
           Violations
         </div>
-
       `;
 
 
     $("loginView")
       .classList
       .add("hidden");
+
 
     $("instructionsView")
       .classList
@@ -496,6 +525,7 @@ $("backBtn").onclick =
       .classList
       .add("hidden");
 
+
     $("loginView")
       .classList
       .remove("hidden");
@@ -505,8 +535,10 @@ $("backBtn").onclick =
 $("consent").onchange =
   () => {
 
-    $("startBtn").disabled =
-      !$("consent").checked;
+    $("startBtn")
+      .disabled =
+        !$("consent")
+          .checked;
   };
 
 
@@ -515,14 +547,16 @@ $("startBtn").onclick =
 
 
 /* =========================================================
-   QUESTION VALIDATION
+   QUESTION BANK VALIDATION
 ========================================================= */
 
 function validate(
   bank
 ) {
 
-  if (!Array.isArray(bank)) {
+  if (
+    !Array.isArray(bank)
+  ) {
 
     throw new Error(
       "The question bank format is invalid."
@@ -530,11 +564,14 @@ function validate(
   }
 
 
-  for (const question of bank) {
+  for (
+    const question of bank
+  ) {
 
     if (
       question.id == null ||
-      !(question.q || question.question) ||
+      !(question.q ||
+        question.question) ||
       !Array.isArray(
         question.options
       ) ||
@@ -557,7 +594,7 @@ function validate(
 
 
 /* =========================================================
-   QUESTION FILE
+   LOAD QUESTION BANK
 ========================================================= */
 
 async function getPool() {
@@ -572,7 +609,9 @@ async function getPool() {
     );
 
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
 
     throw new Error(
       "The question file could not be loaded."
@@ -583,7 +622,9 @@ async function getPool() {
   pool =
     await response.json();
 
+
   validate(pool);
+
 
   return pool;
 }
@@ -598,12 +639,16 @@ async function prepareExam() {
   const button =
     $("startBtn");
 
-  button.disabled = true;
+
+  button.disabled =
+    true;
 
 
   try {
 
-    if (!auth.currentUser) {
+    if (
+      !auth.currentUser
+    ) {
 
       await signInAnonymously(
         auth
@@ -634,7 +679,13 @@ async function prepareExam() {
     await getPool();
 
 
-    if (existing.exists()) {
+    /*
+      RESUME EXISTING EXAM
+    */
+
+    if (
+      existing.exists()
+    ) {
 
       attempt =
         existing.data();
@@ -666,7 +717,9 @@ async function prepareExam() {
         new Map(
           pool.map(
             question => [
-              String(question.id),
+              String(
+                question.id
+              ),
               question
             ]
           )
@@ -681,7 +734,9 @@ async function prepareExam() {
                 String(id)
               )
           )
-          .filter(Boolean);
+          .filter(
+            Boolean
+          );
 
 
       if (
@@ -708,6 +763,10 @@ async function prepareExam() {
     }
 
 
+    /*
+      CREATE NEW EXAM
+    */
+
     questions =
       shuffle(pool)
         .slice(
@@ -722,7 +781,9 @@ async function prepareExam() {
         );
 
 
-    if (!questions.length) {
+    if (
+      !questions.length
+    ) {
 
       throw new Error(
         "The question bank is empty."
@@ -787,6 +848,7 @@ async function prepareExam() {
       attemptRef,
       {
         ...attempt,
+
         updatedAt:
           serverTimestamp()
       }
@@ -795,7 +857,6 @@ async function prepareExam() {
 
     startExam(false);
 
-
   } catch (error) {
 
     message(
@@ -803,13 +864,16 @@ async function prepareExam() {
       true
     );
 
+
     $("instructionsView")
       .classList
       .add("hidden");
 
+
     $("loginView")
       .classList
       .remove("hidden");
+
 
     button.disabled =
       false;
@@ -819,6 +883,7 @@ async function prepareExam() {
 
 /* =========================================================
    START EXAM
+   IMPORTANT: FALSE FULLSCREEN PENALTY FIX
 ========================================================= */
 
 async function startExam(
@@ -828,6 +893,7 @@ async function startExam(
   $("instructionsView")
     .classList
     .add("hidden");
+
 
   $("examView")
     .classList
@@ -847,21 +913,35 @@ async function startExam(
 
   render();
 
+
   startTimer();
 
 
   /*
-    IMPORTANT FIX:
-    SecurityMonitor is not started before fullscreen initialization.
-    We also ignore events during first 4 seconds.
+    ---------------------------------------------------------
+    SECURITY STARTUP PROTECTION
+    ---------------------------------------------------------
+
+    Browser fullscreen initialization can create a
+    fullscreen-exit / blur / visibility event.
+
+    Those events MUST NOT become violations.
+
+    We therefore create a 4-second protected startup window.
   */
 
   securityReady =
     false;
 
+
   securityGraceUntil =
     Date.now() + 4000;
 
+
+  /*
+    Create monitor first,
+    BUT DO NOT START EVENT MONITORING YET.
+  */
 
   monitor =
     new SecurityMonitor({
@@ -883,8 +963,8 @@ async function startExam(
 
 
   /*
-    First request fullscreen.
-    Only AFTER the request is finished do we start monitoring.
+    STEP 1:
+    Request fullscreen BEFORE starting monitor.
   */
 
   try {
@@ -900,12 +980,18 @@ async function startExam(
   }
 
 
+  /*
+    STEP 2:
+    Now start monitoring.
+  */
+
   monitor.start();
 
 
   /*
-    During these first 4 seconds:
-    no security violation is counted.
+    STEP 3:
+    Give browser enough time to finish
+    fullscreen initialization.
   */
 
   setTimeout(
@@ -916,6 +1002,10 @@ async function startExam(
 
       securityGraceUntil =
         0;
+
+      console.log(
+        "Security monitoring fully armed."
+      );
 
     },
     4000
@@ -933,7 +1023,7 @@ async function startExam(
 
 
 /* =========================================================
-   RENDER QUESTION
+   QUESTION RENDER
 ========================================================= */
 
 function render() {
@@ -942,7 +1032,8 @@ function render() {
     questions[current];
 
 
-  if (!question) return;
+  if (!question)
+    return;
 
 
   const text =
@@ -986,73 +1077,92 @@ function render() {
 
 
   $("options")
-    .innerHTML = "";
+    .innerHTML =
+      "";
 
 
-  question.options.forEach(
-    (option, index) => {
+  question.options
+    .forEach(
+      (
+        option,
+        index
+      ) => {
 
-      const label =
-        document.createElement(
-          "label"
+        const label =
+          document.createElement(
+            "label"
+          );
+
+
+        const radio =
+          document.createElement(
+            "input"
+          );
+
+
+        const span =
+          document.createElement(
+            "span"
+          );
+
+
+        label.className =
+          "option";
+
+
+        radio.type =
+          "radio";
+
+
+        radio.name =
+          "answer";
+
+
+        radio.value =
+          option;
+
+
+        radio.checked =
+          attempt
+            .answers?.[
+              question.id
+            ] === option;
+
+
+        span.textContent =
+          `${
+            String.fromCharCode(
+              65 + index
+            )
+          }. ${option}`;
+
+
+        label.append(
+          radio,
+          span
         );
 
-      const radio =
-        document.createElement(
-          "input"
-        );
 
-      const span =
-        document.createElement(
-          "span"
-        );
+        $("options")
+          .append(label);
+      }
+    );
 
 
-      label.className =
-        "option";
-
-
-      radio.type =
-        "radio";
-
-      radio.name =
-        "answer";
-
-      radio.value =
-        option;
-
-      radio.checked =
-        attempt.answers?.[
-          question.id
-        ] === option;
-
-
-      span.textContent =
-        `${
-          String.fromCharCode(
-            65 + index
-          )
-        }. ${option}`;
-
-
-      label.append(
-        radio,
-        span
-      );
-
-
-      $("options")
-        .append(label);
-    }
-  );
-
+  /*
+    QUESTION PALETTE
+  */
 
   $("palette")
-    .innerHTML = "";
+    .innerHTML =
+      "";
 
 
   questions.forEach(
-    (item, index) => {
+    (
+      item,
+      index
+    ) => {
 
       const button =
         document.createElement(
@@ -1143,7 +1253,8 @@ function save() {
     );
 
 
-  if (!selected) return;
+  if (!selected)
+    return;
 
 
   attempt.answers[
@@ -1156,7 +1267,7 @@ function save() {
 
 
 /* =========================================================
-   FIRESTORE SYNC
+   SYNC ATTEMPT
 ========================================================= */
 
 async function sync(
@@ -1212,7 +1323,7 @@ async function sync(
   } catch (error) {
 
     console.error(
-      "Sync failed:",
+      "Attempt sync failed:",
       error
     );
   }
@@ -1228,11 +1339,13 @@ $("prevBtn").onclick =
 
     save();
 
+
     current =
       Math.max(
         0,
         current - 1
       );
+
 
     sync();
 
@@ -1245,11 +1358,13 @@ $("saveNextBtn").onclick =
 
     save();
 
+
     current =
       Math.min(
         questions.length - 1,
         current + 1
       );
+
 
     sync();
 
@@ -1262,19 +1377,23 @@ $("reviewBtn").onclick =
 
     save();
 
-    const id =
+
+    const questionId =
       questions[current].id;
+
 
     const position =
       attempt.review.indexOf(
-        id
+        questionId
       );
 
 
-    if (position < 0) {
+    if (
+      position < 0
+    ) {
 
       attempt.review.push(
-        id
+        questionId
       );
 
     } else {
@@ -1295,14 +1414,14 @@ $("reviewBtn").onclick =
 $("submitBtn").onclick =
   () => {
 
-    const confirmed =
+    if (
       confirm(
         "Do you want to submit the exam now?"
-      );
+      )
+    ) {
 
-    if (!confirmed) return;
-
-    submitExam(false);
+      submitExam(false);
+    }
   };
 
 
@@ -1318,16 +1437,20 @@ function alertSecurity(
     .textContent =
       text;
 
+
   $("securityAlert")
     .classList
     .remove("hidden");
 
 
   setTimeout(
-    () =>
+    () => {
+
       $("securityAlert")
         .classList
-        .add("hidden"),
+        .add("hidden");
+
+    },
     3500
   );
 }
@@ -1335,25 +1458,39 @@ function alertSecurity(
 
 /* =========================================================
    SECURITY VIOLATION
+   IMPORTANT: FIRST FULLSCREEN EVENT IS IGNORED
 ========================================================= */
 
 async function violation(
   event
 ) {
 
-  if (submitting) return;
+  if (
+    submitting
+  ) {
+
+    return;
+  }
 
 
   /*
+    ========================================================
     FALSE FIRST PENALTY FIX
+    ========================================================
 
-    Ignore:
-    - fullscreen startup
-    - browser permission transition
-    - initial blur
-    - initial tab visibility event
+    Before securityReady becomes true,
+    browser startup events are ignored.
 
-    for the first 4 seconds.
+    This protects against:
+
+    - fullscreen initialization
+    - first blur
+    - first visibilitychange
+    - viewport adjustment
+    - browser UI transition
+
+    They do NOT increment violationCount.
+    They do NOT add penalty.
   */
 
   if (
@@ -1370,6 +1507,10 @@ async function violation(
     return;
   }
 
+
+  /*
+    REAL VIOLATION
+  */
 
   attempt.violationCount =
     (
@@ -1423,7 +1564,7 @@ async function violation(
 
 
   /*
-    Optional question replacement.
+    OPTIONAL QUESTION REPLACEMENT
   */
 
   if (
@@ -1443,14 +1584,15 @@ async function violation(
 
 
     const replacement =
-      shuffle(pool).find(
-        question =>
-          !used.has(
-            String(
-              question.id
+      shuffle(pool)
+        .find(
+          question =>
+            !used.has(
+              String(
+                question.id
+              )
             )
-          )
-      );
+        );
 
 
     if (replacement) {
@@ -1523,14 +1665,26 @@ function startTimer() {
 
     $("timer")
       .textContent =
-        `${String(
-          minutes
-        ).padStart(2, "0")}:${String(
-          seconds
-        ).padStart(2, "0")}`;
+        `${
+          String(
+            minutes
+          ).padStart(
+            2,
+            "0"
+          )
+        }:${
+          String(
+            seconds
+          ).padStart(
+            2,
+            "0"
+          )
+        }`;
 
 
-    if (!left) {
+    if (
+      !left
+    ) {
 
       submitExam(true);
     }
@@ -1559,7 +1713,9 @@ function calculate() {
   let wrong = 0;
 
 
-  for (const question of questions) {
+  for (
+    const question of questions
+  ) {
 
     const answer =
       attempt.answers?.[
@@ -1622,14 +1778,20 @@ function calculate() {
 
 
 /* =========================================================
-   SUBMIT
+   SUBMIT EXAM
 ========================================================= */
 
 async function submitExam(
   auto = false
 ) {
 
-  if (submitting) return;
+  if (
+    submitting
+  ) {
+
+    return;
+  }
+
 
   submitting =
     true;
@@ -1651,26 +1813,48 @@ async function submitExam(
 
 
   const tabTypes = [
+
     "tab-hidden",
+
     "window-blur",
+
     "fullscreen-exit",
+
     "viewport-change"
+
   ];
 
 
   const copyTypes = [
+
     "copy",
+
     "cut",
+
     "paste",
+
     "context-menu",
+
     "print",
+
     "selection"
+
   ];
 
 
+  /*
+    Store complete question snapshot.
+
+    This will later allow the performance
+    report to show questions and answers.
+  */
+
   const questionSnapshot =
     questions.map(
-      (question, index) => ({
+      (
+        question,
+        index
+      ) => ({
 
         number:
           index + 1,
@@ -1827,7 +2011,9 @@ async function submitExam(
 
       document
         .exitFullscreen()
-        .catch(() => {});
+        .catch(
+          () => {}
+        );
     }
 
 
@@ -1839,11 +2025,14 @@ async function submitExam(
   } catch (error) {
 
     console.error(
+      "Result submission failed:",
       error
     );
 
+
     submitting =
       false;
+
 
     alert(
       "The result could not be submitted. Check your internet connection and try again."
@@ -1863,6 +2052,7 @@ function showResult(
   $("examView")
     .classList
     .add("hidden");
+
 
   $("resultView")
     .classList
@@ -1914,7 +2104,10 @@ function showResult(
 
 
   questions.forEach(
-    (question, index) => {
+    (
+      question,
+      index
+    ) => {
 
       const mine =
         attempt.answers?.[
@@ -1968,7 +2161,7 @@ function showResult(
 
 
   /*
-    Star rating
+    STAR RATING
   */
 
   $("stars")
@@ -2012,11 +2205,17 @@ function showResult(
             ".star"
           )
           .forEach(
-            (item, index) =>
+            (
+              item,
+              index
+            ) => {
+
               item.classList.toggle(
                 "active",
                 index < i
-              )
+              );
+
+            }
           );
       };
 
@@ -2024,536 +2223,6 @@ function showResult(
     $("stars")
       .append(button);
   }
-
-
-  /*
-    Download area
-  */
-
-  let downloadBox =
-    $("performanceDownloads");
-
-
-  if (!downloadBox) {
-
-    downloadBox =
-      document.createElement(
-        "div"
-      );
-
-
-    downloadBox.id =
-      "performanceDownloads";
-
-
-    downloadBox.style.cssText =
-      `
-        margin-top:20px;
-        padding:18px;
-        border:1px solid #dbe4f0;
-        border-radius:12px;
-        background:#f8fafc;
-        text-align:left;
-      `;
-
-
-    downloadBox.innerHTML =
-      `
-        <h3 style="margin:0 0 6px">
-          Download Performance
-        </h3>
-
-        <p
-          style="
-            margin:0 0 14px;
-            color:#64748b;
-            font-size:14px;
-          "
-        >
-          Download your performance result
-          and complete question/answer record.
-        </p>
-
-        <div
-          style="
-            display:flex;
-            gap:10px;
-            flex-wrap:wrap;
-          "
-        >
-
-          <button
-            id="downloadPerformanceBtn"
-            type="button"
-            style="
-              border:0;
-              border-radius:10px;
-              padding:11px 15px;
-              background:#2563eb;
-              color:#fff;
-              font-weight:800;
-              cursor:pointer;
-            "
-          >
-            ⬇ Download Performance Result
-          </button>
-
-          <button
-            id="downloadQuestionsBtn"
-            type="button"
-            style="
-              border:0;
-              border-radius:10px;
-              padding:11px 15px;
-              background:#e2e8f0;
-              color:#172033;
-              font-weight:800;
-              cursor:pointer;
-            "
-          >
-            ⬇ Download Questions & Answers
-          </button>
-
-        </div>
-      `;
-
-
-    const target =
-      $("reviewLedger");
-
-
-    target.parentNode.insertBefore(
-      downloadBox,
-      target.nextSibling
-    );
-  }
-
-
-  $("downloadPerformanceBtn")
-    .onclick =
-      () =>
-        downloadPerformance(
-          result
-        );
-
-
-  $("downloadQuestionsBtn")
-    .onclick =
-      () =>
-        downloadQuestions(
-          result
-        );
-}
-
-
-/* =========================================================
-   DOWNLOAD PERFORMANCE
-========================================================= */
-
-function downloadPerformance(
-  result
-) {
-
-  const accuracy =
-    result.total
-      ? Math.round(
-          result.correct /
-          result.total *
-          100
-        )
-      : 0;
-
-
-  const html =
-    `
-    <!doctype html>
-
-    <html>
-
-    <head>
-
-      <meta charset="utf-8">
-
-      <title>
-        Performance Result
-      </title>
-
-      <style>
-
-        body{
-          font-family:Arial,sans-serif;
-          padding:30px;
-          color:#172033;
-        }
-
-        h1{
-          color:#1d4ed8;
-        }
-
-        .grid{
-          display:grid;
-          grid-template-columns:
-            repeat(4,1fr);
-          gap:12px;
-        }
-
-        .box{
-          border:1px solid #dbe4f0;
-          padding:15px;
-          border-radius:10px;
-        }
-
-        .question{
-          padding:12px 0;
-          border-bottom:
-            1px solid #eee;
-        }
-
-        @media(max-width:700px){
-          .grid{
-            grid-template-columns:1fr 1fr;
-          }
-        }
-
-      </style>
-
-    </head>
-
-    <body>
-
-      <h1>
-        ${
-          escapeText(
-            config.examTitle ||
-            "TestHub Examination"
-          )
-        }
-      </h1>
-
-
-      <p>
-
-        <b>Student:</b>
-        ${
-          escapeText(
-            result.name
-          )
-        }
-
-        <br>
-
-        <b>Email:</b>
-        ${
-          escapeText(
-            result.email
-          )
-        }
-
-        <br>
-
-        <b>Center:</b>
-        ${
-          escapeText(
-            config.centerCode ||
-            "-"
-          )
-        }
-
-      </p>
-
-
-      <div class="grid">
-
-        <div class="box">
-          <b>Score</b>
-          <br>
-          ${
-            result.score
-          }/${result.total}
-        </div>
-
-        <div class="box">
-          <b>Accuracy</b>
-          <br>
-          ${accuracy}%
-        </div>
-
-        <div class="box">
-          <b>Correct</b>
-          <br>
-          ${result.correct}
-        </div>
-
-        <div class="box">
-          <b>Wrong</b>
-          <br>
-          ${result.wrong}
-        </div>
-
-      </div>
-
-
-      <h2>
-        Security
-      </h2>
-
-      <p>
-
-        Tab/fullscreen:
-        ${result.tabSwitches}
-
-        · Copy/other:
-        ${result.copiesAttempted}
-
-        · Penalty:
-        ${result.penaltiesApplied}
-
-      </p>
-
-
-      <h2>
-        Question Performance
-      </h2>
-
-
-      ${
-        questions
-          .map(
-            (question, index) => {
-
-              const mine =
-                attempt.answers?.[
-                  question.id
-                ] ||
-                "Not answered";
-
-
-              const right =
-                question.a ??
-                question.answer;
-
-
-              return `
-                <div class="question">
-
-                  <b>
-                    Q${
-                      index + 1
-                    }.
-                  </b>
-
-                  ${
-                    escapeText(
-                      question.q ??
-                      question.question
-                    )
-                  }
-
-                  <br>
-
-                  Your answer:
-                  ${
-                    escapeText(
-                      mine
-                    )
-                  }
-
-                  <br>
-
-                  Correct answer:
-                  ${
-                    escapeText(
-                      right
-                    )
-                  }
-
-                </div>
-              `;
-            }
-          )
-          .join("")
-      }
-
-    </body>
-
-    </html>
-    `;
-
-
-  downloadBlob(
-    html,
-    "testhub-performance-result.html",
-    "text/html;charset=utf-8"
-  );
-}
-
-
-/* =========================================================
-   DOWNLOAD QUESTIONS + ANSWERS
-========================================================= */
-
-function downloadQuestions(
-  result
-) {
-
-  const rows = [
-
-    [
-      "Question No",
-      "Question",
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D",
-      "Your Answer",
-      "Correct Answer",
-      "Result"
-    ]
-
-  ];
-
-
-  questions.forEach(
-    (question, index) => {
-
-      const mine =
-        attempt.answers?.[
-          question.id
-        ] ||
-        "Not answered";
-
-
-      const right =
-        question.a ??
-        question.answer;
-
-
-      rows.push([
-
-        index + 1,
-
-        question.q ??
-          question.question,
-
-        question.options?.[0] ||
-          "",
-
-        question.options?.[1] ||
-          "",
-
-        question.options?.[2] ||
-          "",
-
-        question.options?.[3] ||
-          "",
-
-        mine,
-
-        right,
-
-        mine === right
-          ? "Correct"
-          : mine ===
-            "Not answered"
-            ? "Unanswered"
-            : "Wrong"
-
-      ]);
-    }
-  );
-
-
-  const csv =
-    "\ufeff" +
-    rows
-      .map(
-        row =>
-          row
-            .map(
-              value =>
-                `"${String(
-                  value ?? ""
-                ).replaceAll(
-                  '"',
-                  '""'
-                )}"`
-            )
-            .join(",")
-      )
-      .join("\n");
-
-
-  downloadBlob(
-    csv,
-    "testhub-questions-answers.csv",
-    "text/csv;charset=utf-8"
-  );
-}
-
-
-/* =========================================================
-   DOWNLOAD HELPERS
-========================================================= */
-
-function escapeText(
-  value
-) {
-
-  return String(
-    value ?? ""
-  ).replace(
-    /[&<>"']/g,
-    char =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[char])
-  );
-}
-
-
-function downloadBlob(
-  content,
-  filename,
-  type
-) {
-
-  const url =
-    URL.createObjectURL(
-      new Blob(
-        [content],
-        {
-          type
-        }
-      )
-    );
-
-
-  const link =
-    document.createElement(
-      "a"
-    );
-
-
-  link.href =
-    url;
-
-  link.download =
-    filename;
-
-  link.click();
-
-
-  setTimeout(
-    () =>
-      URL.revokeObjectURL(
-        url
-      ),
-    500
-  );
 }
 
 
@@ -2570,9 +2239,11 @@ $("feedbackBtn").onclick =
         .textContent =
           "Rating required.";
 
+
       $("feedbackMsg")
         .className =
           "notice error";
+
 
       return;
     }
@@ -2611,6 +2282,7 @@ $("feedbackBtn").onclick =
         .textContent =
           "Feedback successfully saved.";
 
+
       $("feedbackMsg")
         .className =
           "notice";
@@ -2628,6 +2300,7 @@ $("feedbackBtn").onclick =
           "Feedback save failed: " +
           error.message;
 
+
       $("feedbackMsg")
         .className =
           "notice error";
@@ -2636,7 +2309,7 @@ $("feedbackBtn").onclick =
 
 
 /* =========================================================
-   FINAL MESSAGE
+   SUCCESS ALERT
 ========================================================= */
 
 $("feedbackBtn")
@@ -2703,27 +2376,27 @@ document.addEventListener(
       .querySelectorAll(
         "body *"
       )
-      .forEach(element => {
-
-        if (
-          element.children.length ===
-          0
-        ) {
-
-          const currentText =
-            element.textContent.trim();
+      .forEach(
+        element => {
 
           if (
-            replacements[
-              currentText
-            ]
+            element.children.length ===
+            0
           ) {
 
-            element.textContent =
-              replacements[
-                currentText
-              ];
+            const text =
+              element.textContent.trim();
+
+
+            if (
+              replacements[text]
+            ) {
+
+              element.textContent =
+                replacements[text];
+            }
           }
+
         }
-      });
+      );
   });
