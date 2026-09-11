@@ -22,6 +22,8 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-functions.js";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyBp1JrZy_dsJbXmg0jPfZrVEg7vlMbwRkM",
@@ -38,6 +40,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 const db = getFirestore(app);
+const functions = getFunctions(app, "asia-south1");
+const callForceSubmit = httpsCallable(functions, "forceSubmitAttempt");
 
 const $ = id => document.getElementById(id);
 
@@ -1878,107 +1882,17 @@ function renderAttempts() {
    FORCE SUBMIT REQUEST
 ========================================================= */
 
-async function requestForceSubmit(
-  id
-) {
-
-  const attempt =
-    attempts.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!attempt) {
-    return;
-  }
-
-
-  const studentName =
-    attempt.name ||
-    "this candidate";
-
-
-  if (
-    !confirm(
-      `Force submit ${studentName}'s examination?\n\n` +
-      `The student will be automatically submitted.`
-    )
-  ) {
-
-    return;
-
-  }
-
-
+async function requestForceSubmit(id) {
+  const attempt = attempts.find(item => item.id === id);
+  if (!attempt) return;
+  const studentName = attempt.name || "this candidate";
+  if (!confirm(`Force submit ${studentName}'s examination?\n\nThe secure exam backend will request the submission.`)) return;
   try {
-
-    await updateDocSafe(
-      doc(
-        db,
-        "attempts",
-        id
-      ),
-      {
-
-        forceSubmitRequested:
-          true,
-
-        forceSubmitReason:
-          "Submitted by administrator",
-
-        forceSubmitRequestedAt:
-          serverTimestamp(),
-
-        forceSubmitRequestedBy:
-          currentUser?.uid ||
-          "",
-
-        updatedAt:
-          serverTimestamp()
-
-      }
-    );
-
-
-    alert(
-      "Force-submit request sent to the student panel."
-    );
-
-
+    await callForceSubmit({ attemptId: id, reason: "Submitted by administrator" });
+    alert("Secure force-submit request sent successfully.");
   } catch (error) {
-
-    alert(
-      "Force submit failed:\n" +
-      error.message
-    );
-
+    alert("Force submit failed:\n" + (error.message || error));
   }
-
-}
-
-
-/*
-   Small wrapper kept separate to make
-   admin action failures easier to diagnose.
-*/
-
-async function updateDocSafe(
-  reference,
-  data
-) {
-
-  const module =
-    await import(
-      "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js"
-    );
-
-
-  await module.updateDoc(
-    reference,
-    data
-  );
-
 }
 
 
