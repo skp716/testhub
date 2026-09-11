@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Online Examination</title>
 
   <style>
+
     :root {
       --primary: #2563eb;
       --primary-dark: #1d4ed8;
@@ -33,7 +35,8 @@
 
     button,
     input,
-    textarea {
+    textarea,
+    select {
       font: inherit;
     }
 
@@ -142,7 +145,8 @@
     }
 
     input,
-    textarea {
+    textarea,
+    select {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -153,7 +157,8 @@
     }
 
     input:focus,
-    textarea:focus {
+    textarea:focus,
+    select:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
     }
@@ -252,7 +257,62 @@
       margin-top: 4px;
     }
 
-    /* Exam Header */
+    /* =========================================================
+       EXAM SELECTOR
+    ========================================================== */
+
+    .exam-selector-box {
+      margin-bottom: 22px;
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .exam-selector-box label {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .exam-selector-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .exam-summary-card {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .exam-summary-item {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .exam-summary-item strong {
+      display: block;
+      font-size: 17px;
+      color: var(--primary);
+    }
+
+    .exam-summary-item span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* =========================================================
+       EXAM HEADER
+    ========================================================== */
+
     .exam-header {
       display: flex;
       justify-content: space-between;
@@ -327,6 +387,18 @@
       font-weight: 700;
     }
 
+    .question-subject {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .question-text {
       font-size: 20px;
       font-weight: 700;
@@ -372,7 +444,7 @@
       margin-top: 4px;
     }
 
-    .option label {
+    .option span {
       cursor: pointer;
       font-weight: 500;
       line-height: 1.5;
@@ -411,7 +483,7 @@
       border-color: var(--primary);
     }
 
-    .palette button.active {
+    .palette button.current {
       background: var(--primary);
       color: white;
       border-color: var(--primary);
@@ -423,9 +495,13 @@
       border-color: #86efac;
     }
 
-    .palette button.active.answered {
+    .palette button.current.answered {
       background: var(--primary);
       color: white;
+    }
+
+    .palette button.review {
+      box-shadow: inset 0 0 0 2px #f59e0b;
     }
 
     .stats {
@@ -449,7 +525,10 @@
       color: var(--primary);
     }
 
-    /* Result */
+    /* =========================================================
+       RESULT
+    ========================================================== */
+
     .result-card {
       text-align: center;
     }
@@ -528,7 +607,20 @@
       color: var(--success);
     }
 
+    .download-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .download-actions .btn {
+      min-width: 220px;
+    }
+
     @media (max-width: 800px) {
+
       .exam-layout {
         grid-template-columns: 1fr;
       }
@@ -541,9 +633,14 @@
       .timer-box {
         width: 100%;
       }
+
+      .exam-summary-card {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
     @media (max-width: 600px) {
+
       .page {
         padding: 12px;
       }
@@ -575,17 +672,30 @@
       .btn-row .btn {
         flex: 1 1 100%;
       }
+
+      .download-actions .btn {
+        width: 100%;
+      }
+
     }
+
   </style>
 </head>
 
 <body>
+
   <main class="page">
+
     <div class="container">
 
-      <!-- LOGIN VIEW -->
+      <!-- =====================================================
+           LOGIN VIEW
+      ====================================================== -->
+
       <section id="loginView" class="card">
+
         <div class="brand">
+
           <img
             id="loginLogo"
             class="brand-logo hidden"
@@ -594,51 +704,141 @@
           />
 
           <div id="loginFallback" class="brand-fallback">
-            E
+            T
           </div>
 
-          <h1 id="instituteName">Online Examination</h1>
-          <p id="examInfo">Please enter your details to continue.</p>
+          <h1 id="instituteName">
+            Online Examination
+          </h1>
+
+          <p id="examInfo">
+            Loading examination information...
+          </p>
+
         </div>
 
-        <h2 class="section-title">Candidate Login</h2>
+
+        <h2 class="section-title">
+          Candidate Login
+        </h2>
+
         <p class="section-subtitle">
-          Fill in your basic details before starting the examination.
+          Select your examination and enter your details before starting.
         </p>
 
+
+        <!-- =====================================================
+             EXAM SELECTION
+        ====================================================== -->
+
+        <div id="examSelectionBox" class="exam-selector-box">
+
+          <label for="examSelect">
+            Select Examination
+          </label>
+
+          <select id="examSelect" disabled>
+            <option value="">
+              Loading examinations...
+            </option>
+          </select>
+
+          <div
+            id="examSelectorNote"
+            class="exam-selector-note"
+          >
+            Please select an active examination.
+          </div>
+
+          <div
+            id="examPreview"
+            class="exam-summary-card hidden"
+          >
+
+            <div class="exam-summary-item">
+              <strong id="previewDuration">-</strong>
+              <span>Minutes</span>
+            </div>
+
+            <div class="exam-summary-item">
+              <strong id="previewQuestions">-</strong>
+              <span>Questions</span>
+            </div>
+
+            <div class="exam-summary-item">
+              <strong id="previewNegative">-</strong>
+              <span>Negative</span>
+            </div>
+
+            <div class="exam-summary-item">
+              <strong id="previewViolations">-</strong>
+              <span>Violations</span>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- =====================================================
+             CANDIDATE FORM
+        ====================================================== -->
+
         <form id="candidateForm">
+
           <div class="form-grid">
+
             <div class="form-group">
-              <label for="candidateName">Candidate Name</label>
+
+              <label for="candidateName">
+                Candidate Name
+              </label>
+
               <input
                 type="text"
                 id="candidateName"
                 placeholder="Enter your full name"
                 required
               />
+
             </div>
 
+
             <div class="form-group">
-              <label for="candidateEmail">Email Address</label>
+
+              <label for="candidateEmail">
+                Email Address
+              </label>
+
               <input
                 type="email"
                 id="candidateEmail"
                 placeholder="Enter your email"
                 required
               />
+
             </div>
 
+
             <div class="form-group full">
-              <label for="centerCode">Center Code</label>
+
+              <label for="centerCode">
+                Center Code
+              </label>
+
               <input
                 type="text"
                 id="centerCode"
                 placeholder="Enter center code if provided"
               />
+
             </div>
+
           </div>
 
+
           <div class="btn-row">
+
             <button
               type="submit"
               id="continueBtn"
@@ -647,42 +847,98 @@
             >
               Continue
             </button>
+
           </div>
 
-          <div id="loginMessage" class="notice hidden"></div>
+
+          <div
+            id="loginMessage"
+            class="notice hidden"
+          ></div>
+
         </form>
+
       </section>
 
-      <!-- INSTRUCTIONS VIEW -->
-      <section id="instructionsView" class="card hidden">
-        <h2 class="section-title">Examination Instructions</h2>
+
+      <!-- =====================================================
+           INSTRUCTIONS VIEW
+      ====================================================== -->
+
+      <section
+        id="instructionsView"
+        class="card hidden"
+      >
+
+        <h2 class="section-title">
+          Examination Instructions
+        </h2>
+
         <p class="section-subtitle">
           Read all instructions carefully before starting the exam.
         </p>
 
-        <div id="configSummary" class="info-box"></div>
+
+        <div
+          id="configSummary"
+          class="info-box"
+        ></div>
+
 
         <ul class="instruction-list">
-          <li>Keep your internet connection stable during the exam.</li>
-          <li>Do not refresh or close the examination window.</li>
-          <li>Do not switch tabs or windows unnecessarily.</li>
-          <li>Select the most appropriate answer for every question.</li>
-          <li>You can navigate between questions using the question palette.</li>
-          <li>Submit the examination only after reviewing your answers.</li>
+
+          <li>
+            Keep your internet connection stable during the exam.
+          </li>
+
+          <li>
+            Do not refresh or close the examination window.
+          </li>
+
+          <li>
+            Do not switch tabs or windows unnecessarily.
+          </li>
+
+          <li>
+            Select the most appropriate answer for every question.
+          </li>
+
+          <li>
+            You can navigate between questions using the question palette.
+          </li>
+
+          <li>
+            Submit the examination only after reviewing your answers.
+          </li>
+
         </ul>
 
+
         <label class="consent-row">
-          <input type="checkbox" id="consent" />
+
+          <input
+            type="checkbox"
+            id="consent"
+          />
+
           <span>
             I have read and understood all the instructions and agree to follow
             the examination rules.
           </span>
+
         </label>
 
+
         <div class="btn-row">
-          <button type="button" id="backBtn" class="btn btn-secondary">
+
+          <button
+            type="button"
+            id="backBtn"
+            class="btn btn-secondary"
+          >
             Back
           </button>
+
 
           <button
             type="button"
@@ -692,33 +948,78 @@
           >
             Start Examination
           </button>
+
         </div>
+
       </section>
 
-      <!-- EXAM VIEW -->
-      <section id="examView" class="hidden">
+
+      <!-- =====================================================
+           EXAM VIEW
+      ====================================================== -->
+
+      <section
+        id="examView"
+        class="hidden"
+      >
+
         <div class="exam-header">
+
           <div>
-            <h2 id="examTitle">Online Examination</h2>
-            <div id="candidateLabel" class="candidate-label">
+
+            <h2 id="examTitle">
+              Online Examination
+            </h2>
+
+            <div
+              id="candidateLabel"
+              class="candidate-label"
+            >
               Candidate
             </div>
+
           </div>
 
-          <div id="timer" class="timer-box">
+
+          <div
+            id="timer"
+            class="timer-box"
+          >
             00:00
           </div>
+
         </div>
 
-        <div id="securityAlert" class="security-alert hidden"></div>
+
+        <div
+          id="securityAlert"
+          class="security-alert hidden"
+        ></div>
+
 
         <div class="exam-layout">
+
           <div class="question-card">
+
             <div class="question-top">
-              <div id="questionNumber" class="question-number">
+
+              <div
+                id="questionNumber"
+                class="question-number"
+              >
                 Question 1
               </div>
+
+
+              <div
+                id="questionSubject"
+                class="question-subject"
+              >
+                General
+              </div>
+
             </div>
+
 
             <img
               id="questionImage"
@@ -727,13 +1028,23 @@
               alt="Question Image"
             />
 
-            <div id="questionText" class="question-text">
+
+            <div
+              id="questionText"
+              class="question-text"
+            >
               Question will appear here.
             </div>
 
-            <div id="options" class="options"></div>
+
+            <div
+              id="options"
+              class="options"
+            ></div>
+
 
             <div class="question-actions">
+
               <button
                 type="button"
                 id="prevBtn"
@@ -741,6 +1052,7 @@
               >
                 Previous
               </button>
+
 
               <button
                 type="button"
@@ -750,6 +1062,7 @@
                 Save & Next
               </button>
 
+
               <button
                 type="button"
                 id="reviewBtn"
@@ -758,6 +1071,7 @@
                 Mark for Review
               </button>
 
+
               <button
                 type="button"
                 id="submitBtn"
@@ -765,100 +1079,240 @@
               >
                 Submit Exam
               </button>
+
             </div>
+
           </div>
 
+
           <aside class="side-card">
-            <h3 class="palette-title">Question Palette</h3>
-            <div id="palette" class="palette"></div>
+
+            <h3 class="palette-title">
+              Question Palette
+            </h3>
+
+
+            <div
+              id="palette"
+              class="palette"
+            ></div>
+
 
             <div class="stats">
-              <div class="stat-row">
-                <span>Security Violations</span>
-                <strong id="securityCount">0</strong>
-              </div>
 
               <div class="stat-row">
-                <span>Penalty Count</span>
-                <strong id="penaltyCount">0</strong>
+
+                <span>
+                  Security Violations
+                </span>
+
+                <strong id="securityCount">
+                  0
+                </strong>
+
               </div>
+
+
+              <div class="stat-row">
+
+                <span>
+                  Penalty Count
+                </span>
+
+                <strong id="penaltyCount">
+                  0
+                </strong>
+
+              </div>
+
             </div>
+
           </aside>
+
         </div>
+
       </section>
 
-      <!-- RESULT VIEW -->
-      <section id="resultView" class="card result-card hidden">
-        <h2 class="section-title">Examination Result</h2>
+
+      <!-- =====================================================
+           RESULT VIEW
+      ====================================================== -->
+
+      <section
+        id="resultView"
+        class="card result-card hidden"
+      >
+
+        <h2 class="section-title">
+          Examination Result
+        </h2>
+
         <p class="section-subtitle">
           Your examination has been submitted successfully.
         </p>
 
-        <div id="finalScore" class="score">0</div>
 
-        <div class="result-grid">
-          <div class="result-stat">
-            <strong id="accuracy">0%</strong>
-            <span>Accuracy</span>
-          </div>
-
-          <div class="result-stat">
-            <strong id="correctCount">0</strong>
-            <span>Correct Answers</span>
-          </div>
-
-          <div class="result-stat">
-            <strong id="wrongCount">0</strong>
-            <span>Wrong Answers</span>
-          </div>
+        <div
+          id="finalScore"
+          class="score"
+        >
+          0
         </div>
 
-        <div id="securitySummary" class="info-box"></div>
 
-        <div id="reviewLedger" class="review-ledger"></div>
+        <div class="result-grid">
+
+          <div class="result-stat">
+
+            <strong id="accuracy">
+              0%
+            </strong>
+
+            <span>
+              Accuracy
+            </span>
+
+          </div>
+
+
+          <div class="result-stat">
+
+            <strong id="correctCount">
+              0
+            </strong>
+
+            <span>
+              Correct Answers
+            </span>
+
+          </div>
+
+
+          <div class="result-stat">
+
+            <strong id="wrongCount">
+              0
+            </strong>
+
+            <span>
+              Wrong Answers
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div
+          id="securitySummary"
+          class="info-box"
+        ></div>
+
+
+        <div
+          id="reviewLedger"
+          class="review-ledger"
+        ></div>
+
+
+        <div
+          id="downloadActions"
+          class="download-actions"
+        ></div>
+
 
         <div class="feedback-box">
-          <h3>Share Your Feedback</h3>
+
+          <h3>
+            Share Your Feedback
+          </h3>
 
           <p class="section-subtitle">
             Please rate your examination experience.
           </p>
 
-          <div id="stars" class="stars">
-            <button type="button" data-rating="1" aria-label="1 star">
+
+          <div
+            id="stars"
+            class="stars"
+          >
+
+            <button
+              type="button"
+              data-rating="1"
+              aria-label="1 star"
+            >
               ★
             </button>
-            <button type="button" data-rating="2" aria-label="2 stars">
+
+            <button
+              type="button"
+              data-rating="2"
+              aria-label="2 stars"
+            >
               ★
             </button>
-            <button type="button" data-rating="3" aria-label="3 stars">
+
+            <button
+              type="button"
+              data-rating="3"
+              aria-label="3 stars"
+            >
               ★
             </button>
-            <button type="button" data-rating="4" aria-label="4 stars">
+
+            <button
+              type="button"
+              data-rating="4"
+              aria-label="4 stars"
+            >
               ★
             </button>
-            <button type="button" data-rating="5" aria-label="5 stars">
+
+            <button
+              type="button"
+              data-rating="5"
+              aria-label="5 stars"
+            >
               ★
             </button>
+
           </div>
 
+
           <div class="form-group">
-            <label for="doubt">Any Doubt or Query</label>
+
+            <label for="doubt">
+              Any Doubt or Query
+            </label>
+
             <textarea
               id="doubt"
               placeholder="Write your doubt or query"
             ></textarea>
+
           </div>
 
-          <div class="form-group" style="margin-top: 16px;">
-            <label for="feedback">Your Feedback</label>
+
+          <div
+            class="form-group"
+            style="margin-top: 16px;"
+          >
+
+            <label for="feedback">
+              Your Feedback
+            </label>
+
             <textarea
               id="feedback"
               placeholder="Write your feedback"
             ></textarea>
+
           </div>
 
+
           <div class="btn-row">
+
             <button
               type="button"
               id="feedbackBtn"
@@ -866,16 +1320,29 @@
             >
               Submit Feedback
             </button>
+
           </div>
 
+
           <div id="feedbackMsg"></div>
+
         </div>
+
       </section>
 
     </div>
+
   </main>
 
-  <!-- Existing JavaScript files -->
-  <script type="module" src="./student.js"></script>
+
+  <!-- =========================================================
+       STUDENT APPLICATION
+  ========================================================== -->
+
+  <script
+    type="module"
+    src="./student.js"
+  ></script>
+
 </body>
 </html>
