@@ -17,13 +17,11 @@ import {
   deleteDoc,
   collection,
   onSnapshot,
+  getDocs,
+  writeBatch,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
-
-/* =========================================================
-   FIREBASE
-========================================================= */
 
 const firebaseConfig = {
   apiKey: "AIzaSyBp1JrZy_dsJbXmg0jPfZrVEg7vlMbwRkM",
@@ -34,110 +32,163 @@ const firebaseConfig = {
   appId: "1:530965492161:web:b8ea984ef0c9cb14763f40"
 };
 
+
 const app = initializeApp(firebaseConfig);
+
 const auth = getAuth(app);
+
 const db = getFirestore(app);
 
 const $ = id => document.getElementById(id);
 
+
 let currentUser = null;
-let config = {};
+
 let results = [];
+
 let attempts = [];
+
 let unsubs = [];
+
 let logoData = "";
 
+let config = {};
 
-/* =========================================================
-   HELPERS
-========================================================= */
 
-const millis = value =>
-  value?.toMillis
-    ? value.toMillis()
-    : value?.seconds
-      ? value.seconds * 1000
-      : typeof value === "number"
-        ? value
-        : Date.parse(value) || 0;
+const ms = value => {
 
-const formatDate = value =>
-  millis(value)
-    ? new Date(millis(value)).toLocaleString("en-IN")
-    : "-";
+  if (value?.toMillis) {
+    return value.toMillis();
+  }
 
-const localDate = value => {
-  const n = millis(value);
+  if (value?.seconds) {
+    return value.seconds * 1000;
+  }
 
-  if (!n) return "";
+  if (typeof value === "number") {
+    return value;
+  }
 
-  const d = new Date(n);
+  const parsed = Date.parse(value);
 
-  return new Date(
-    d - d.getTimezoneOffset() * 60000
-  ).toISOString().slice(0, 16);
+  return Number.isNaN(parsed)
+    ? 0
+    : parsed;
+
 };
 
-const escapeHtml = value =>
-  String(value ?? "").replace(
-    /[&<>"']/g,
-    c => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[c])
+
+const fmt = value => {
+
+  const timestamp = ms(value);
+
+  return timestamp
+    ? new Date(timestamp).toLocaleString("en-IN")
+    : "-";
+
+};
+
+
+const local = value => {
+
+  const timestamp = ms(value);
+
+  if (!timestamp) {
+    return "";
+  }
+
+  const date = new Date(timestamp);
+
+  const shifted = new Date(
+    date -
+    date.getTimezoneOffset() * 60000
   );
 
-function message(id, text, error = false) {
+  return shifted
+    .toISOString()
+    .slice(0, 16);
+
+};
+
+
+const esc = value =>
+  String(value ?? "")
+    .replace(
+      /[&<>"']/g,
+      character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[character])
+    );
+
+
+const msg = (
+  id,
+  text,
+  bad = false
+) => {
+
   const element = $(id);
 
-  if (!element) return;
+  if (!element) {
+    return;
+  }
 
   element.textContent = text;
+
   element.className =
-    `msg${error ? " error" : " success-msg"}`;
+    `msg${bad ? " error" : " good"}`;
 
-  element.classList.remove("hidden");
-}
+  element.classList.remove(
+    "hidden"
+  );
 
-function number(id, fallback = 0) {
-  const value = Number($(id)?.value);
-  return Number.isFinite(value) ? value : fallback;
-}
+};
 
 
 /* =========================================================
-   ADMIN SECURITY
+   ADMIN AUTHORIZATION
 ========================================================= */
 
 async function isAdmin(user) {
 
-  if (!user) return false;
+  if (!user) {
+    return false;
+  }
 
   try {
 
-    const snap = await getDoc(
-      doc(db, "admin", user.uid)
+    const snapshot = await getDoc(
+      doc(
+        db,
+        "admin",
+        user.uid
+      )
     );
 
-    const data = snap.data() || {};
+    const data =
+      snapshot.data() || {};
 
     return (
-      snap.exists() &&
+      snapshot.exists() &&
       data.active === true &&
-      ["admin", "super_admin"].includes(
+      [
+        "admin",
+        "super_admin"
+      ].includes(
         data.role || "admin"
       )
     );
 
-  } catch (error) {
-
-    console.error("Admin verification failed:", error);
+  } catch {
 
     return false;
+
   }
+
 }
 
 
@@ -145,329 +196,140 @@ async function isAdmin(user) {
    LOGIN
 ========================================================= */
 
-$("loginForm").onsubmit = async event => {
+$("loginForm").onsubmit =
+  async event => {
 
-  event.preventDefault();
+    event.preventDefault();
 
-  $("loginBtn").disabled = true;
-  $("loginBtn").textContent = "Logging in...";
+    $("loginBtn").disabled = true;
 
-  try {
-
-    await signInWithEmailAndPassword(
-      auth,
-      $("email").value.trim().toLowerCase(),
-      $("password").value
-    );
-
-  } catch (error) {
-
-    message(
-      "loginMsg",
-      "Login failed: " + error.message,
-      true
-    );
-
-  } finally {
-
-    $("loginBtn").disabled = false;
-    $("loginBtn").textContent = "Login";
-  }
-};
-
-
-/* =========================================================
-   AUTH STATE
-========================================================= */
-
-onAuthStateChanged(auth, async user => {
-
-  unsubs.forEach(unsubscribe => {
     try {
-      unsubscribe();
-    } catch {}
-  });
 
-  unsubs = [];
+      await signInWithEmailAndPassword(
+        auth,
+        $("email")
+          .value
+          .trim()
+          .toLowerCase(),
+        $("password").value
+      );
 
-  if (!user) {
+    } catch (error) {
 
-    $("login").classList.remove("hidden");
-    $("app").classList.add("hidden");
+      msg(
+        "loginMsg",
+        "Login failed: " +
+        error.message,
+        true
+      );
 
-    return;
-  }
+    } finally {
 
-  const allowed = await isAdmin(user);
+      $("loginBtn").disabled =
+        false;
 
-  if (!allowed) {
+    }
 
-    await signOut(auth);
-
-    message(
-      "loginMsg",
-      "This Firebase account is not authorized in admin/{uid}.",
-      true
-    );
-
-    return;
-  }
-
-  currentUser = user;
-
-  $("login").classList.add("hidden");
-  $("app").classList.remove("hidden");
-
-  $("adminLabel").textContent =
-    user.email || user.uid;
-
-  await loadConfig();
-  subscribe();
-});
+  };
 
 
-/* =========================================================
-   LOGOUT / REFRESH
-========================================================= */
+$("logout").onclick =
+  () =>
+    signOut(auth);
 
-$("logout").onclick = () => signOut(auth);
 
-$("refresh").onclick = async () => {
+$("refresh").onclick =
+  async () => {
 
-  await loadConfig();
+    await loadConfig();
 
-  subscribe();
-};
+    subscribe();
+
+  };
 
 
 /* =========================================================
    TABS
 ========================================================= */
 
-document.querySelectorAll(".tab").forEach(button => {
+document
+  .querySelectorAll(".tab")
+  .forEach(
+    button => {
 
-  button.onclick = () => {
+      button.onclick = () => {
 
-    document
-      .querySelectorAll(".tab")
-      .forEach(item =>
-        item.classList.remove("active")
-      );
+        document
+          .querySelectorAll(
+            ".tab,.panel"
+          )
+          .forEach(
+            element =>
+              element.classList.remove(
+                "active"
+              )
+          );
 
-    document
-      .querySelectorAll(".panel")
-      .forEach(panel =>
-        panel.classList.remove("active")
-      );
+        button.classList.add(
+          "active"
+        );
 
-    button.classList.add("active");
+        $(
+          button.dataset.panel
+        ).classList.add(
+          "active"
+        );
 
-    const panel =
-      $(button.dataset.panel);
+      };
 
-    if (panel) {
-      panel.classList.add("active");
     }
-  };
-
-});
+  );
 
 
 /* =========================================================
    ACTIVE EXAMS
 ========================================================= */
 
-function updateActiveExamStyle() {
-
-  document
-    .querySelectorAll(".exam-pill")
-    .forEach(pill => {
-
-      const checkbox =
-        pill.querySelector(".active-exam");
-
-      if (!checkbox) return;
-
-      pill.classList.toggle(
-        "active",
-        checkbox.checked
-      );
-    });
-
-  updateSummary();
-}
-
-
 document
-  .querySelectorAll(".active-exam")
-  .forEach(input => {
+  .querySelectorAll(
+    ".active-exam"
+  )
+  .forEach(
+    checkbox => {
 
-    input.onchange =
-      updateActiveExamStyle;
+      checkbox.onchange =
+        () => {
 
-  });
+          checkbox
+            .closest(
+              ".exam-pill"
+            )
+            ?.classList.toggle(
+              "active",
+              checkbox.checked
+            );
 
+          updateSummary();
 
-/* =========================================================
-   SUBJECT MANAGEMENT
-========================================================= */
+        };
 
-function addSubject(data = {}) {
-
-  const wrapper =
-    document.createElement("div");
-
-  wrapper.className =
-    "subject-row";
-
-  wrapper.innerHTML = `
-    <div>
-      <label>Subject Name *</label>
-      <input
-        class="s-name"
-        value="${escapeHtml(
-          data.name || "All Questions"
-        )}"
-      >
-    </div>
-
-    <div>
-      <label>Questions *</label>
-      <input
-        class="s-count"
-        type="number"
-        min="1"
-        value="${Number(data.count) || 100}"
-      >
-    </div>
-
-    <div>
-      <label>Question Source *</label>
-      <input
-        class="s-source"
-        value="${escapeHtml(
-          data.source || "chapter.json"
-        )}"
-      >
-    </div>
-
-    <div>
-      <label>Question Order *</label>
-      <select class="s-order">
-        <option value="random">Random</option>
-        <option value="sequential">Sequential</option>
-      </select>
-    </div>
-
-    <button
-      type="button"
-      class="btn danger remove-subject"
-    >
-      🗑
-    </button>
-  `;
-
-  const order =
-    wrapper.querySelector(".s-order");
-
-  order.value =
-    data.order === "sequential"
-      ? "sequential"
-      : "random";
-
-  wrapper
-    .querySelector(".remove-subject")
-    .onclick = () => {
-
-      wrapper.remove();
-
-      if (!$("subjectRows").children.length) {
-
-        addSubject({
-          name: "All Questions",
-          count: 100,
-          source: "chapter.json",
-          order: "random"
-        });
-
-      }
-
-      updateSummary();
-    };
-
-  wrapper
-    .querySelectorAll("input,select")
-    .forEach(input => {
-
-      input.addEventListener(
-        "input",
-        updateSummary
-      );
-
-      input.addEventListener(
-        "change",
-        updateSummary
-      );
-    });
-
-  $("subjectRows").appendChild(wrapper);
-
-  updateSummary();
-}
+    }
+  );
 
 
-function getSubjects() {
-
-  return [...document.querySelectorAll(
-    ".subject-row"
-  )]
-
-    .map(row => ({
-
-      name:
-        row
-          .querySelector(".s-name")
-          .value
-          .trim(),
-
-      count:
-        Number(
-          row
-            .querySelector(".s-count")
-            .value
-        ) || 0,
-
-      source:
-        row
-          .querySelector(".s-source")
-          .value
-          .trim(),
-
-      order:
-        row
-          .querySelector(".s-order")
-          .value
-
-    }))
-
-    .filter(subject =>
-      subject.name &&
-      subject.count > 0 &&
-      subject.source
-    );
-}
-
-
-$("addSubject").onclick = () => {
-
-  addSubject({
-    name: "New Subject",
-    count: 25,
-    source: "chapter.json",
-    order: "random"
-  });
-
-};
+[
+  "durationMinutes",
+  "tabPenalty",
+  "negativeMarking",
+  "maxTabSwitches"
+]
+.forEach(
+  id =>
+    $(id)?.addEventListener(
+      "input",
+      updateSummary
+    )
+);
 
 
 /* =========================================================
@@ -476,70 +338,274 @@ $("addSubject").onclick = () => {
 
 function updateSummary() {
 
-  const exam =
-    $("examSelect")
-      ?.selectedOptions?.[0]
-      ?.textContent ||
-    "Exam";
-
   const subjects =
     getSubjects();
 
+  const active =
+    [
+      ...document.querySelectorAll(
+        ".active-exam:checked"
+      )
+    ]
+      .map(
+        checkbox =>
+          checkbox.value
+            .replaceAll(
+              "_",
+              " "
+            )
+            .toUpperCase()
+      );
+
   const total =
     subjects.reduce(
-      (sum, subject) =>
+      (
+        sum,
+        subject
+      ) =>
         sum + subject.count,
       0
     );
 
-  const active =
-    [...document.querySelectorAll(
-      ".active-exam:checked"
-    )]
-      .map(item =>
-        item.value
-          .replaceAll("_", " ")
-          .toUpperCase()
-      );
+  const title =
+    $("examSelect")
+      .selectedOptions?.[0]
+      ?.textContent ||
+    "Exam";
 
-  if (!$("examSummary")) return;
-
-  $("examSummary").innerHTML = `
-    <b>${escapeHtml(exam)}:</b>
-    ${subjects.length} section(s) •
-    ${total} student questions •
-    Timer:
-    ${number("durationMinutes", 90)}
-    min •
-    Penalty:
-    ${number("tabPenalty", 0)}
-    /violation.
-    <br>
-    <b>Active:</b>
-    ${
+  $("examSummary").innerHTML =
+    `<b>${esc(title)}</b> · ` +
+    `${subjects.length} subject(s) · ` +
+    `${total} questions · ` +
+    `Timer: ${
+      Number(
+        $("durationMinutes").value
+      ) || 0
+    } min · ` +
+    `Penalty: ${
+      Number(
+        $("tabPenalty").value
+      ) || 0
+    }` +
+    `<br><b>Active:</b> ` +
+    `${
       active.length
-        ? escapeHtml(active.join(", "))
+        ? esc(active.join(", "))
         : "None"
-    }
-  `;
+    }`;
+
 }
 
 
-[
-  "examSelect",
-  "durationMinutes",
-  "tabPenalty",
-  "negativeMarking",
-  "totalPool",
-  "studentLimit"
-].forEach(id => {
+/* =========================================================
+   SUBJECT
+========================================================= */
 
-  $(id)?.addEventListener(
-    "input",
-    updateSummary
-  );
+function addSubject(
+  data = {}
+) {
 
-});
+  const row =
+    document.createElement(
+      "div"
+    );
+
+  row.className =
+    "subject-row";
+
+  row.innerHTML = `
+
+    <div>
+
+      <label>
+        Subject Name
+      </label>
+
+      <input
+        class="s-name"
+        value="${esc(
+          data.name ||
+          "All Questions"
+        )}"
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>
+        Questions
+      </label>
+
+      <input
+        class="s-count"
+        type="number"
+        min="1"
+        value="${
+          Number(
+            data.count
+          ) || 100
+        }"
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>
+        Source
+      </label>
+
+      <input
+        class="s-source"
+        value="${esc(
+          data.source ||
+          "chapter.json"
+        )}"
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>
+        Order
+      </label>
+
+      <select class="s-order">
+
+        <option value="random">
+          Random
+        </option>
+
+        <option value="sequential">
+          Sequential
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <button
+      type="button"
+      class="btn danger remove-subject"
+    >
+      🗑
+    </button>
+
+  `;
+
+
+  row.querySelector(
+    ".s-order"
+  ).value =
+    data.order ===
+    "sequential"
+      ? "sequential"
+      : "random";
+
+
+  row.querySelector(
+    ".remove-subject"
+  ).onclick =
+    () => {
+
+      row.remove();
+
+      if (
+        !$("subjectRows")
+          .children
+          .length
+      ) {
+
+        addSubject();
+
+      }
+
+      updateSummary();
+
+    };
+
+
+  row
+    .querySelectorAll(
+      "input,select"
+    )
+    .forEach(
+      element =>
+        element.addEventListener(
+          "input",
+          updateSummary
+        )
+    );
+
+
+  $("subjectRows")
+    .appendChild(row);
+
+}
+
+
+function getSubjects() {
+
+  return [
+    ...document.querySelectorAll(
+      ".subject-row"
+    )
+  ]
+    .map(
+      row => ({
+
+        name:
+          row.querySelector(
+            ".s-name"
+          )
+          .value
+          .trim() ||
+          "All Questions",
+
+        count:
+          Number(
+            row.querySelector(
+              ".s-count"
+            ).value
+          ) || 0,
+
+        source:
+          row.querySelector(
+            ".s-source"
+          )
+          .value
+          .trim() ||
+          "chapter.json",
+
+        order:
+          row.querySelector(
+            ".s-order"
+          ).value
+
+      })
+    )
+    .filter(
+      subject =>
+        subject.count > 0
+    );
+
+}
+
+
+$("addSubject").onclick =
+  () =>
+    addSubject({
+      name: "New Subject",
+      count: 25,
+      source: "chapter.json",
+      order: "random"
+    });
 
 
 /* =========================================================
@@ -550,7 +616,7 @@ async function loadConfig() {
 
   try {
 
-    const snap =
+    const snapshot =
       await getDoc(
         doc(
           db,
@@ -559,58 +625,86 @@ async function loadConfig() {
         )
       );
 
+
     config =
-      snap.exists()
-        ? snap.data()
+      snapshot.exists()
+        ? snapshot.data()
         : {};
+
 
     $("examSelect").value =
       config.examId ||
       "rrb_group_d";
 
+
     $("durationMinutes").value =
-      config.durationMinutes ?? 90;
+      config.durationMinutes ??
+      90;
+
 
     $("tabPenalty").value =
-      config.tabPenalty ?? 0;
+      config.tabPenalty ??
+      0;
+
 
     $("negativeMarking").value =
-      config.negativeMarking ?? 0;
+      config.negativeMarking ??
+      0;
+
 
     $("maxTabSwitches").value =
-      config.maxTabSwitches ?? 5;
+      config.maxTabSwitches ??
+      5;
+
 
     $("centerCode").value =
-      config.centerCode ?? "";
+      config.centerCode ??
+      "";
+
 
     $("instituteName").value =
-      config.instituteName ?? "";
+      config.instituteName ??
+      "";
+
 
     $("instituteLocation").value =
-      config.instituteLocation ?? "";
+      config.instituteLocation ??
+      "";
+
 
     $("fullAddress").value =
-      config.fullAddress ?? "";
+      config.fullAddress ??
+      "";
 
-    $("examTitle").value =
-      config.examTitle ?? "";
 
     $("windowStart").value =
-      localDate(config.windowStart);
+      local(
+        config.windowStart
+      );
+
 
     $("windowEnd").value =
-      localDate(config.windowEnd);
+      local(
+        config.windowEnd
+      );
+
 
     $("examActive").value =
-      String(config.examActive !== false);
+      String(
+        config.examActive !== false
+      );
+
 
     $("replaceQuestionOnSwitch").value =
       String(
         config.replaceQuestionOnSwitch !== false
       );
 
+
     logoData =
-      config.instituteLogo || "";
+      config.instituteLogo ||
+      "";
+
 
     if (logoData) {
 
@@ -619,69 +713,95 @@ async function loadConfig() {
 
       $("logoPreview")
         .classList
-        .remove("hidden");
+        .remove(
+          "hidden"
+        );
 
-      $("instituteLogo").value =
-        logoData.startsWith("data:")
-          ? ""
-          : logoData;
     }
 
-    const active =
-      config.activeExams ||
-      ["rrb_group_d"];
 
     document
-      .querySelectorAll(".active-exam")
-      .forEach(box => {
+      .querySelectorAll(
+        ".active-exam"
+      )
+      .forEach(
+        checkbox => {
 
-        box.checked =
-          active.includes(box.value);
+          checkbox.checked =
+            (
+              config.activeExams ||
+              ["rrb_group_d"]
+            )
+              .includes(
+                checkbox.value
+              );
 
-      });
+          checkbox
+            .closest(
+              ".exam-pill"
+            )
+            ?.classList.toggle(
+              "active",
+              checkbox.checked
+            );
 
-    updateActiveExamStyle();
+        }
+      );
+
 
     document
       .querySelectorAll(
         'input[name="uploadMethod"]'
       )
-      .forEach(radio => {
+      .forEach(
+        radio => {
 
-        radio.checked =
-          radio.value ===
-          (
-            config.uploadMethod ||
-            "live_form"
-          );
+          radio.checked =
+            radio.value ===
+            (
+              config.uploadMethod ||
+              "live_form"
+            );
 
-      });
+        }
+      );
 
-    $("subjectRows").innerHTML = "";
+
+    $("subjectRows")
+      .innerHTML =
+      "";
+
 
     const subjects =
-      Array.isArray(config.subjects) &&
-      config.subjects.length
+      config.subjects?.length
         ? config.subjects
         : [
             {
               name:
                 "All Questions",
+
               count:
                 config.studentLimit ||
                 100,
+
               source:
                 config.questionSource ||
                 "chapter.json",
+
               order:
                 config.questionOrder ||
                 "random"
             }
           ];
 
-    subjects.forEach(addSubject);
+
+    subjects.forEach(
+      addSubject
+    );
+
 
     updateSummary();
+
 
     $("adminTitle").textContent =
       `${
@@ -689,17 +809,18 @@ async function loadConfig() {
         "TestHub"
       } Admin`;
 
+
   } catch (error) {
 
-    console.error(error);
-
-    message(
-      "configMsg",
+    msg(
+      "subjectMsg",
       "Config load failed: " +
-      error.message,
+        error.message,
       true
     );
+
   }
+
 }
 
 
@@ -713,30 +834,52 @@ $("saveExamSettings").onclick =
     const subjects =
       getSubjects();
 
+
     const activeExams =
-      [...document.querySelectorAll(
-        ".active-exam:checked"
-      )].map(input =>
-        input.value
+      [
+        ...document.querySelectorAll(
+          ".active-exam:checked"
+        )
+      ]
+        .map(
+          checkbox =>
+            checkbox.value
+        );
+
+
+    const total =
+      subjects.reduce(
+        (
+          sum,
+          subject
+        ) =>
+          sum +
+          subject.count,
+        0
       );
+
 
     if (!activeExams.length) {
 
-      return message(
+      return msg(
         "subjectMsg",
         "Select at least one active exam.",
         true
       );
+
     }
+
 
     if (!subjects.length) {
 
-      return message(
+      return msg(
         "subjectMsg",
-        "Add at least one valid subject.",
+        "Add at least one subject.",
         true
       );
+
     }
+
 
     const start =
       $("windowStart").value;
@@ -744,129 +887,140 @@ $("saveExamSettings").onclick =
     const end =
       $("windowEnd").value;
 
+
+    const windowStart =
+      start
+        ? new Date(start).getTime()
+        : 0;
+
+
+    const windowEnd =
+      end
+        ? new Date(end).getTime()
+        : 0;
+
+
     if (
-      start &&
-      end &&
-      new Date(start) >=
-        new Date(end)
+      windowStart &&
+      windowEnd &&
+      windowStart >= windowEnd
     ) {
 
-      return message(
+      return msg(
         "subjectMsg",
         "Start time must be earlier than close time.",
         true
       );
+
     }
 
-    const total =
-      subjects.reduce(
-        (sum, subject) =>
-          sum + subject.count,
-        0
-      );
-
-    const payload = {
-
-      examId:
-        $("examSelect").value,
-
-      activeExams,
-
-      subjects,
-
-      totalPool:
-        total,
-
-      studentLimit:
-        total,
-
-      durationMinutes:
-        number("durationMinutes", 90),
-
-      negativeMarking:
-        number("negativeMarking", 0),
-
-      tabPenalty:
-        number("tabPenalty", 0),
-
-      maxTabSwitches:
-        number("maxTabSwitches", 5),
-
-      autoSubmitAfter:
-        number("maxTabSwitches", 5),
-
-      replaceQuestionOnSwitch:
-        $("replaceQuestionOnSwitch").value
-        !== "false",
-
-      examActive:
-        $("examActive").value
-        === "true",
-
-      examTitle:
-        $("examTitle").value.trim() ||
-        $("examSelect")
-          .selectedOptions[0]
-          .textContent,
-
-      questionSource:
-        subjects[0]?.source ||
-        "chapter.json",
-
-      questionOrder:
-        subjects[0]?.order ||
-        "random",
-
-      instituteName:
-        $("instituteName")
-          .value
-          .trim() ||
-        "TestHub",
-
-      instituteLogo:
-        logoData,
-
-      centerCode:
-        $("centerCode")
-          .value
-          .trim(),
-
-      instituteLocation:
-        $("instituteLocation")
-          .value
-          .trim(),
-
-      fullAddress:
-        $("fullAddress")
-          .value
-          .trim(),
-
-      windowStart:
-        start
-          ? new Date(start).getTime()
-          : 0,
-
-      windowEnd:
-        end
-          ? new Date(end).getTime()
-          : 0,
-
-      uploadMethod:
-        document.querySelector(
-          'input[name="uploadMethod"]:checked'
-        )?.value ||
-        "live_form",
-
-      updatedAt:
-        serverTimestamp(),
-
-      updatedBy:
-        currentUser?.uid ||
-        ""
-
-    };
 
     try {
+
+      const examId =
+        $("examSelect").value;
+
+
+      const examTitle =
+        $("examSelect")
+          .selectedOptions[0]
+          .textContent;
+
+
+      const payload = {
+
+        examId,
+
+        activeExams,
+
+        subjects,
+
+        totalPool:
+          total,
+
+        studentLimit:
+          total,
+
+        durationMinutes:
+          Number(
+            $("durationMinutes").value
+          ) || 90,
+
+        tabPenalty:
+          Number(
+            $("tabPenalty").value
+          ) || 0,
+
+        negativeMarking:
+          Number(
+            $("negativeMarking").value
+          ) || 0,
+
+        maxTabSwitches:
+          Number(
+            $("maxTabSwitches").value
+          ) || 5,
+
+        autoSubmitAfter:
+          Number(
+            $("maxTabSwitches").value
+          ) || 5,
+
+        replaceQuestionOnSwitch:
+          $("replaceQuestionOnSwitch")
+            .value !== "false",
+
+        examActive:
+          $("examActive")
+            .value === "true",
+
+        examTitle,
+
+        questionSource:
+          subjects[0].source,
+
+        questionOrder:
+          subjects[0].order,
+
+        instituteName:
+          $("instituteName")
+            .value
+            .trim() ||
+          "TestHub",
+
+        instituteLogo:
+          logoData,
+
+        centerCode:
+          $("centerCode")
+            .value
+            .trim(),
+
+        instituteLocation:
+          $("instituteLocation")
+            .value
+            .trim(),
+
+        fullAddress:
+          $("fullAddress")
+            .value
+            .trim(),
+
+        windowStart,
+
+        windowEnd,
+
+        uploadMethod:
+          document.querySelector(
+            'input[name="uploadMethod"]:checked'
+          )?.value ||
+          "live_form",
+
+        updatedAt:
+          serverTimestamp()
+
+      };
+
 
       await setDoc(
         doc(
@@ -876,66 +1030,69 @@ $("saveExamSettings").onclick =
         ),
         payload,
         {
-          merge: true
+          merge:true
         }
       );
+
 
       await setDoc(
         doc(
           db,
           "exam_config",
-          payload.examId
+          examId
         ),
         payload,
         {
-          merge: true
+          merge:true
         }
       );
 
-      message(
+
+      msg(
         "subjectMsg",
         "Exam and subject settings saved successfully."
       );
 
-      $("adminTitle").textContent =
-        `${payload.instituteName} Admin`;
-
-      updateSummary();
 
     } catch (error) {
 
-      message(
+      msg(
         "subjectMsg",
         "Save failed: " +
         error.message,
         true
       );
+
     }
+
   };
 
 
 /* =========================================================
-   CENTER CODE
+   CENTER
 ========================================================= */
 
 $("activateCenter").onclick =
   async () => {
 
-    const code =
-      $("centerCode")
-        .value
-        .trim();
-
-    if (!code) {
-
-      return message(
-        "centerMsg",
-        "Enter a center code first.",
-        true
-      );
-    }
-
     try {
+
+      const code =
+        $("centerCode")
+          .value
+          .trim();
+
+
+      if (!code) {
+
+        return msg(
+          "centerMsg",
+          "Enter a center code first.",
+          true
+        );
+
+      }
+
 
       await setDoc(
         doc(
@@ -969,24 +1126,28 @@ $("activateCenter").onclick =
 
         },
         {
-          merge: true
+          merge:true
         }
       );
 
-      message(
+
+      msg(
         "centerMsg",
         `Active center code: ${code}`
       );
 
+
     } catch (error) {
 
-      message(
+      msg(
         "centerMsg",
         "Center activation failed: " +
         error.message,
         true
       );
+
     }
+
   };
 
 
@@ -997,27 +1158,41 @@ $("activateCenter").onclick =
 $("saveAvailability").onclick =
   async () => {
 
-    const start =
-      $("windowStart").value;
-
-    const end =
-      $("windowEnd").value;
-
-    if (
-      start &&
-      end &&
-      new Date(start) >=
-        new Date(end)
-    ) {
-
-      return message(
-        "availabilityMsg",
-        "Start time must be earlier than close time.",
-        true
-      );
-    }
-
     try {
+
+      const start =
+        $("windowStart").value;
+
+      const end =
+        $("windowEnd").value;
+
+
+      const windowStart =
+        start
+          ? new Date(start).getTime()
+          : 0;
+
+
+      const windowEnd =
+        end
+          ? new Date(end).getTime()
+          : 0;
+
+
+      if (
+        windowStart &&
+        windowEnd &&
+        windowStart >= windowEnd
+      ) {
+
+        return msg(
+          "availabilityMsg",
+          "Start time must be earlier than close time.",
+          true
+        );
+
+      }
+
 
       await setDoc(
         doc(
@@ -1027,25 +1202,23 @@ $("saveAvailability").onclick =
         ),
         {
 
-          windowStart:
-            start
-              ? new Date(start).getTime()
-              : 0,
+          windowStart,
 
-          windowEnd:
-            end
-              ? new Date(end).getTime()
-              : 0,
+          windowEnd,
 
           maxTabSwitches:
-            number("maxTabSwitches", 5),
+            Number(
+              $("maxTabSwitches").value
+            ) || 5,
 
           autoSubmitAfter:
-            number("maxTabSwitches", 5),
+            Number(
+              $("maxTabSwitches").value
+            ) || 5,
 
           examActive:
-            $("examActive").value
-            === "true",
+            $("examActive")
+              .value === "true",
 
           uploadMethod:
             document.querySelector(
@@ -1058,24 +1231,28 @@ $("saveAvailability").onclick =
 
         },
         {
-          merge: true
+          merge:true
         }
       );
 
-      message(
+
+      msg(
         "availabilityMsg",
-        "Availability and upload settings saved successfully."
+        "Availability settings saved successfully."
       );
+
 
     } catch (error) {
 
-      message(
+      msg(
         "availabilityMsg",
         "Save failed: " +
         error.message,
         true
       );
+
     }
+
   };
 
 
@@ -1089,132 +1266,201 @@ $("logoFile").onchange =
     const file =
       event.target.files[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
-    if (file.size > 500000) {
+
+    if (
+      file.size > 500000
+    ) {
 
       alert(
         "Logo must be smaller than 500 KB."
       );
 
-      event.target.value = "";
+      event.target.value =
+        "";
 
       return;
+
     }
+
 
     const reader =
       new FileReader();
 
-    reader.onload = () => {
 
-      logoData =
-        reader.result;
+    reader.onload =
+      () => {
 
-      $("logoPreview").src =
-        logoData;
+        logoData =
+          reader.result;
 
-      $("logoPreview")
-        .classList
-        .remove("hidden");
-    };
+        $("logoPreview").src =
+          logoData;
 
-    reader.readAsDataURL(file);
+        $("logoPreview")
+          .classList
+          .remove(
+            "hidden"
+          );
+
+      };
+
+
+    reader.readAsDataURL(
+      file
+    );
+
   };
 
 
 $("instituteLogo").oninput =
   event => {
 
-    const value =
-      event.target.value.trim();
-
     logoData =
-      value;
+      event.target.value
+        .trim();
 
-    if (value) {
+
+    $("logoPreview")
+      .classList.toggle(
+        "hidden",
+        !logoData
+      );
+
+
+    if (logoData) {
 
       $("logoPreview").src =
-        value;
-
-      $("logoPreview")
-        .classList
-        .remove("hidden");
+        logoData;
 
     }
+
   };
 
 
 $("clearLogo").onclick =
   () => {
 
-    logoData = "";
+    logoData =
+      "";
 
-    $("instituteLogo").value = "";
+    $("instituteLogo").value =
+      "";
 
-    $("logoFile").value = "";
+    $("logoPreview").src =
+      "";
 
     $("logoPreview")
       .classList
-      .add("hidden");
+      .add(
+        "hidden"
+      );
 
   };
 
 
 /* =========================================================
-   REALTIME DATA
+   SUBSCRIPTIONS
 ========================================================= */
 
 function subscribe() {
 
-  unsubs.forEach(unsubscribe => {
+  unsubs
+    .splice(0)
+    .forEach(
+      unsubscribe =>
+        unsubscribe()
+    );
 
-    try {
-      unsubscribe();
-    } catch {}
 
-  });
-
-  unsubs = [];
-
+  /* LIVE ATTEMPTS */
 
   unsubs.push(
+
     onSnapshot(
-      collection(db, "attempts"),
+      collection(
+        db,
+        "attempts"
+      ),
       snapshot => {
 
         attempts =
           snapshot.docs.map(
-            item => ({
-              id: item.id,
-              ...item.data()
+            document => ({
+
+              id:
+                document.id,
+
+              ...document.data()
+
             })
           );
 
+
         renderAttempts();
-        updateStats();
+
+        renderStats();
+
+      },
+      error => {
+
+        console.error(
+          "Attempt listener:",
+          error
+        );
+
       }
     )
+
   );
 
 
+  /* RESULTS */
+
   unsubs.push(
+
     onSnapshot(
-      collection(db, "results"),
+      collection(
+        db,
+        "results"
+      ),
       snapshot => {
 
         results =
           snapshot.docs.map(
-            item => ({
-              id: item.id,
-              ...item.data()
+            document => ({
+
+              id:
+                document.id,
+
+              ...document.data()
+
             })
           );
 
+
+        populateExamFilter();
+
         renderResults();
+
         renderSecurity();
-        updateStats();
+
+        renderStats();
+
+      },
+      error => {
+
+        console.error(
+          "Results listener:",
+          error
+        );
+
       }
     )
+
   );
 
 }
@@ -1224,10 +1470,11 @@ function subscribe() {
    STATS
 ========================================================= */
 
-function updateStats() {
+function renderStats() {
 
   $("submissions").textContent =
     results.length;
+
 
   $("active").textContent =
     attempts.filter(
@@ -1236,60 +1483,109 @@ function updateStats() {
         "in_progress"
     ).length;
 
-  if (!results.length) {
-
-    $("average").textContent =
-      "0";
-
-    $("ratingAvg").textContent =
-      "0/5";
-
-    return;
-  }
 
   const average =
-    results.reduce(
-      (sum, result) =>
-        sum +
-        (Number(result.score) || 0),
-      0
-    ) /
-    results.length;
+    results.length
+      ? results.reduce(
+          (
+            sum,
+            result
+          ) =>
+            sum +
+            (
+              Number(
+                result.score
+              ) || 0
+            ),
+          0
+        ) /
+        results.length
+      : 0;
+
 
   $("average").textContent =
     average.toFixed(2);
 
+
   const rated =
     results.filter(
       result =>
-        Number(result.rating) > 0
+        Number(
+          result.rating
+        ) > 0
     );
 
-  if (!rated.length) {
 
-    $("ratingAvg").textContent =
-      "0/5";
+  const rating =
+    rated.length
+      ? rated.reduce(
+          (
+            sum,
+            result
+          ) =>
+            sum +
+            Number(
+              result.rating
+            ),
+          0
+        ) /
+        rated.length
+      : 0;
 
-  } else {
 
-    const avgRating =
-      rated.reduce(
-        (sum, result) =>
-          sum +
-          Number(result.rating),
-        0
-      ) /
-      rated.length;
+  $("ratingAvg").textContent =
+    rating
+      ? `${rating.toFixed(1)}/5`
+      : "0/5";
 
-    $("ratingAvg").textContent =
-      `${avgRating.toFixed(1)}/5`;
+}
+
+
+/* =========================================================
+   TIME FORMAT
+========================================================= */
+
+function formatRemaining(
+  endsAt
+) {
+
+  const remaining =
+    Math.max(
+      0,
+      ms(endsAt) -
+      Date.now()
+    );
+
+
+  if (!remaining) {
+    return "00:00";
   }
 
-  $("violations").textContent =
-    results.filter(
-      result =>
-        Number(result.violationCount) > 0
-    ).length;
+
+  const minutes =
+    Math.floor(
+      remaining /
+      60000
+    );
+
+
+  const seconds =
+    Math.floor(
+      (
+        remaining % 60000
+      ) / 1000
+    );
+
+
+  return (
+    `${String(
+      minutes
+    ).padStart(2,"0")}:` +
+    `${String(
+      seconds
+    ).padStart(2,"0")}`
+  );
+
 }
 
 
@@ -1299,102 +1595,757 @@ function updateStats() {
 
 function renderAttempts() {
 
-  const rows =
-    [...attempts]
+  const live =
+    attempts
+      .filter(
+        attempt =>
+          attempt.status !==
+          "submitted"
+      )
       .sort(
-        (a, b) =>
-          millis(b.updatedAt) -
-          millis(a.updatedAt)
+        (
+          first,
+          second
+        ) =>
+          ms(
+            second.updatedAt
+          ) -
+          ms(
+            first.updatedAt
+          )
       );
 
-  $("attemptRows").innerHTML =
-    rows.map(attempt => `
 
+  $("attemptRows").innerHTML =
+    live
+      .map(
+        attempt => {
+
+          const total =
+            Number(
+              attempt.questionIds?.length
+            ) ||
+            Number(
+              attempt.totalQuestions
+            ) ||
+            0;
+
+
+          const currentQuestion =
+            Number(
+              attempt.currentIndex
+            ) || 0;
+
+
+          const progress =
+            total
+              ? Math.min(
+                  100,
+                  (
+                    (currentQuestion + 1) /
+                    total
+                  ) *
+                  100
+                )
+              : 0;
+
+
+          const forceRequested =
+            attempt.forceSubmitRequested ===
+            true;
+
+
+          return `
+
+            <tr>
+
+              <td>
+
+                <b>
+                  ${esc(
+                    attempt.name
+                  )}
+                </b>
+
+              </td>
+
+
+              <td>
+                ${esc(
+                  attempt.email
+                )}
+              </td>
+
+
+              <td>
+                ${esc(
+                  attempt.examTitle ||
+                  attempt.exam ||
+                  "-"
+                )}
+              </td>
+
+
+              <td>
+                ${esc(
+                  attempt.centerCode ||
+                  "-"
+                )}
+              </td>
+
+
+              <td>
+
+                <span
+                  class="badge ${
+                    forceRequested
+                      ? "amber"
+                      : "good"
+                  }"
+                >
+                  ${
+                    forceRequested
+                      ? "Submit requested"
+                      : esc(
+                          attempt.status ||
+                          "active"
+                        )
+                  }
+                </span>
+
+              </td>
+
+
+              <td>
+
+                <div>
+                  <b>
+                    ${
+                      total
+                        ? `${Math.min(
+                            currentQuestion + 1,
+                            total
+                          )}/${total}`
+                        : "-"
+                    }
+                  </b>
+                </div>
+
+                <div class="progress">
+
+                  <span
+                    style="
+                      width:${progress}%
+                    "
+                  ></span>
+
+                </div>
+
+              </td>
+
+
+              <td>
+                ${formatRemaining(
+                  attempt.endsAt
+                )}
+              </td>
+
+
+              <td>
+                ${
+                  Number(
+                    attempt.violationCount
+                  ) || 0
+                }
+              </td>
+
+
+              <td>
+                ${
+                  Number(
+                    attempt.penaltiesApplied
+                  ) || 0
+                }
+              </td>
+
+
+              <td>
+                ${fmt(
+                  attempt.updatedAt ||
+                  attempt.startedAt
+                )}
+              </td>
+
+
+              <td>
+
+                <div
+                  class="live-actions"
+                >
+
+                  ${
+                    forceRequested
+
+                      ? `
+                        <span
+                          class="badge amber"
+                        >
+                          Waiting...
+                        </span>
+                      `
+
+                      : `
+                        <button
+                          type="button"
+                          class="btn danger force-submit"
+                          data-id="${esc(
+                            attempt.id
+                          )}"
+                        >
+                          Force Submit
+                        </button>
+                      `
+                  }
+
+
+                  <button
+                    type="button"
+                    class="btn light live-view"
+                    data-id="${esc(
+                      attempt.id
+                    )}"
+                  >
+                    View
+                  </button>
+
+                </div>
+
+              </td>
+
+            </tr>
+
+          `;
+
+        }
+      )
+      .join("") ||
+
+    `
       <tr>
 
-        <td>
-          ${escapeHtml(
-            attempt.name || "-"
+        <td
+          colspan="11"
+          class="empty"
+        >
+          No active exam attempts.
+        </td>
+
+      </tr>
+    `;
+
+
+  document
+    .querySelectorAll(
+      ".force-submit"
+    )
+    .forEach(
+      button =>
+        button.onclick =
+          () =>
+            requestForceSubmit(
+              button.dataset.id
+            )
+    );
+
+
+  document
+    .querySelectorAll(
+      ".live-view"
+    )
+    .forEach(
+      button =>
+        button.onclick =
+          () =>
+            showLiveDetails(
+              button.dataset.id
+            )
+    );
+
+}
+
+
+/* =========================================================
+   FORCE SUBMIT REQUEST
+========================================================= */
+
+async function requestForceSubmit(
+  id
+) {
+
+  const attempt =
+    attempts.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!attempt) {
+    return;
+  }
+
+
+  const studentName =
+    attempt.name ||
+    "this candidate";
+
+
+  if (
+    !confirm(
+      `Force submit ${studentName}'s examination?\n\n` +
+      `The student will be automatically submitted.`
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  try {
+
+    await updateDocSafe(
+      doc(
+        db,
+        "attempts",
+        id
+      ),
+      {
+
+        forceSubmitRequested:
+          true,
+
+        forceSubmitReason:
+          "Submitted by administrator",
+
+        forceSubmitRequestedAt:
+          serverTimestamp(),
+
+        forceSubmitRequestedBy:
+          currentUser?.uid ||
+          "",
+
+        updatedAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    alert(
+      "Force-submit request sent to the student panel."
+    );
+
+
+  } catch (error) {
+
+    alert(
+      "Force submit failed:\n" +
+      error.message
+    );
+
+  }
+
+}
+
+
+/*
+   Small wrapper kept separate to make
+   admin action failures easier to diagnose.
+*/
+
+async function updateDocSafe(
+  reference,
+  data
+) {
+
+  const module =
+    await import(
+      "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js"
+    );
+
+
+  await module.updateDoc(
+    reference,
+    data
+  );
+
+}
+
+
+/* =========================================================
+   LIVE DETAILS
+========================================================= */
+
+function showLiveDetails(
+  id
+) {
+
+  const attempt =
+    attempts.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!attempt) {
+    return;
+  }
+
+
+  $("detailTitle").textContent =
+    `${attempt.name || "Candidate"} — Live Attempt`;
+
+
+  $("detailSubtitle").textContent =
+    `${attempt.examTitle || attempt.exam || "-"} · ${
+      attempt.email || "-"
+    }`;
+
+
+  $("detailContent").innerHTML = `
+
+    <div class="detail-grid">
+
+      <div class="detail-box">
+
+        <span>
+          Status
+        </span>
+
+        <strong>
+          ${esc(
+            attempt.status ||
+            "active"
           )}
-        </td>
+        </strong>
 
-        <td>
-          ${escapeHtml(
-            attempt.email || "-"
-          )}
-        </td>
+      </div>
 
-        <td>
-          ${escapeHtml(
-            attempt.exam ||
-            attempt.examTitle ||
-            config.examTitle ||
-            "-"
-          )}
-        </td>
 
-        <td>
-          <span class="badge good">
-            ${escapeHtml(
-              attempt.status ||
-              "active"
-            )}
-          </span>
-        </td>
+      <div class="detail-box">
 
-        <td>
+        <span>
+          Current Question
+        </span>
+
+        <strong>
           ${
             Number(
               attempt.currentIndex
-            || 0
             ) + 1
           }
-        </td>
+        </strong>
 
-        <td>
+      </div>
+
+
+      <div class="detail-box">
+
+        <span>
+          Total Questions
+        </span>
+
+        <strong>
+          ${
+            attempt.questionIds?.length ||
+            "-"
+          }
+        </strong>
+
+      </div>
+
+
+      <div class="detail-box">
+
+        <span>
+          Time Left
+        </span>
+
+        <strong>
+          ${formatRemaining(
+            attempt.endsAt
+          )}
+        </strong>
+
+      </div>
+
+
+      <div class="detail-box">
+
+        <span>
+          Violations
+        </span>
+
+        <strong>
           ${
             Number(
               attempt.violationCount
             ) || 0
           }
-        </td>
+        </strong>
 
-        <td>
+      </div>
+
+
+      <div class="detail-box">
+
+        <span>
+          Penalty
+        </span>
+
+        <strong>
           ${
             Number(
               attempt.penaltiesApplied
             ) || 0
           }
-        </td>
+        </strong>
 
-        <td>
-          ${formatDate(
+      </div>
+
+
+      <div class="detail-box">
+
+        <span>
+          Started
+        </span>
+
+        <strong>
+          ${fmt(
+            attempt.startedAt
+          )}
+        </strong>
+
+      </div>
+
+
+      <div class="detail-box">
+
+        <span>
+          Last Activity
+        </span>
+
+        <strong>
+          ${fmt(
             attempt.updatedAt
           )}
-        </td>
+        </strong>
 
-      </tr>
+      </div>
 
-    `).join("") ||
+    </div>
 
-    `
-      <tr>
-        <td
-          colspan="8"
-          class="empty"
-        >
-          No live attempts.
-        </td>
-      </tr>
-    `;
+
+    <div class="summary">
+
+      <b>
+        Center:
+      </b>
+
+      ${esc(
+        attempt.centerCode ||
+        "-"
+      )}
+
+      <br>
+
+      <b>
+        Force Submit:
+      </b>
+
+      ${
+        attempt.forceSubmitRequested
+          ? "Requested"
+          : "Not requested"
+      }
+
+    </div>
+
+
+    <div class="section-block">
+
+      <h3>
+        Security Events
+      </h3>
+
+      ${
+        Array.isArray(
+          attempt.violations
+        ) &&
+        attempt.violations.length
+
+          ? attempt.violations
+              .map(
+                event => `
+
+                  <div class="event">
+
+                    <b>
+                      ${esc(
+                        event.type ||
+                        "security-event"
+                      )}
+                    </b>
+
+                    <br>
+
+                    ${esc(
+                      event.message ||
+                      ""
+                    )}
+
+                    <br>
+
+                    <span class="muted">
+                      ${fmt(
+                        event.at
+                      )}
+                    </span>
+
+                  </div>
+
+                `
+              )
+              .join("")
+
+          : `
+              <p class="muted">
+                No security events.
+              </p>
+            `
+      }
+
+    </div>
+
+  `;
+
+
+  $("detailModal")
+    .classList
+    .remove(
+      "hidden"
+    );
+
 }
 
 
 /* =========================================================
-   RESULTS
+   EXAM FILTER
 ========================================================= */
 
-function filteredResults() {
+function populateExamFilter() {
+
+  const select =
+    $("examFilter");
+
+
+  const selected =
+    select.value;
+
+
+  const map =
+    new Map();
+
+
+  results.forEach(
+    result => {
+
+      const id =
+        String(
+          result.examId ||
+          result.exam ||
+          result.examTitle ||
+          "unknown"
+        );
+
+
+      const title =
+        String(
+          result.examTitle ||
+          result.exam ||
+          result.examId ||
+          "Unknown Exam"
+        );
+
+
+      map.set(
+        id,
+        title
+      );
+
+    }
+  );
+
+
+  select.innerHTML =
+    `
+      <option value="">
+        All Exams
+      </option>
+    `;
+
+
+  [
+    ...map.entries()
+  ]
+    .sort(
+      (
+        first,
+        second
+      ) =>
+        first[1]
+          .localeCompare(
+            second[1]
+          )
+    )
+    .forEach(
+      (
+        [
+          id,
+          title
+        ]
+      ) => {
+
+        const option =
+          document.createElement(
+            "option"
+          );
+
+        option.value =
+          id;
+
+        option.textContent =
+          title;
+
+        select.appendChild(
+          option
+        );
+
+      }
+    );
+
+
+  select.value =
+    selected;
+
+}
+
+
+/* =========================================================
+   FILTERED RESULTS
+========================================================= */
+
+function getFilteredResults() {
 
   const query =
     $("resultSearch")
@@ -1402,260 +2353,410 @@ function filteredResults() {
       .trim()
       .toLowerCase();
 
+
+  const exam =
+    $("examFilter")
+      .value;
+
+
   const sort =
-    $("resultSort").value;
+    $("resultSort")
+      .value;
 
-  let rows =
-    results.filter(result => {
 
-      const searchable =
-        `
-          ${result.name || ""}
-          ${result.email || ""}
-          ${result.exam || ""}
-          ${result.examTitle || ""}
-        `.toLowerCase();
+  const filtered =
+    results.filter(
+      result => {
 
-      return searchable.includes(
-        query
+        const text =
+          [
+            result.name,
+            result.email,
+            result.exam,
+            result.examTitle,
+            result.center,
+            result.centerCode
+          ]
+            .join(" ")
+            .toLowerCase();
+
+
+        const resultExam =
+          String(
+            result.examId ||
+            result.exam ||
+            result.examTitle ||
+            "unknown"
+          );
+
+
+        return (
+          (!query ||
+            text.includes(query)) &&
+          (!exam ||
+            resultExam === exam)
+        );
+
+      }
+    );
+
+
+  filtered.sort(
+    (
+      first,
+      second
+    ) => {
+
+      if (
+        sort ===
+        "newest"
+      ) {
+
+        return (
+          ms(
+            second.submittedAt
+          ) -
+          ms(
+            first.submittedAt
+          )
+        );
+
+      }
+
+
+      if (
+        sort ===
+        "rating"
+      ) {
+
+        return (
+          (
+            Number(
+              second.rating
+            ) || 0
+          ) -
+          (
+            Number(
+              first.rating
+            ) || 0
+          )
+        );
+
+      }
+
+
+      const score =
+        (
+          Number(
+            second.score
+          ) || 0
+        ) -
+        (
+          Number(
+            first.score
+          ) || 0
+        );
+
+
+      if (score !== 0) {
+        return score;
+      }
+
+
+      return (
+        ms(
+          first.submittedAt
+        ) -
+        ms(
+          second.submittedAt
+        )
       );
-    });
+
+    }
+  );
 
 
-  if (sort === "newest") {
+  return filtered;
 
-    rows.sort(
-      (a, b) =>
-        millis(b.submittedAt) -
-        millis(a.submittedAt)
-    );
-
-  } else if (sort === "rating") {
-
-    rows.sort(
-      (a, b) =>
-        (Number(b.rating) || 0) -
-        (Number(a.rating) || 0)
-    );
-
-  } else {
-
-    rows.sort(
-      (a, b) =>
-        (Number(b.score) || 0) -
-        (Number(a.score) || 0)
-    );
-  }
-
-  return rows;
 }
 
 
+/* =========================================================
+   RENDER RESULTS
+========================================================= */
+
 function renderResults() {
 
-  const rows =
-    filteredResults();
+  const filtered =
+    getFilteredResults();
+
+
+  $("filteredCount").textContent =
+    filtered.length;
+
+
+  const highest =
+    filtered.length
+      ? Math.max(
+          ...filtered.map(
+            result =>
+              Number(
+                result.score
+              ) || 0
+          )
+        )
+      : 0;
+
+
+  $("highestScore").textContent =
+    highest;
+
+
+  const average =
+    filtered.length
+      ? filtered.reduce(
+          (
+            sum,
+            result
+          ) =>
+            sum +
+            (
+              Number(
+                result.score
+              ) || 0
+            ),
+          0
+        ) /
+        filtered.length
+      : 0;
+
+
+  $("filteredAverage").textContent =
+    average.toFixed(2);
+
+
+  $("filteredFlags").textContent =
+    filtered.filter(
+      result =>
+        Number(
+          result.violationCount
+        ) > 0
+    ).length;
+
 
   $("resultRows").innerHTML =
-    rows.map((result, index) => `
+    filtered
+      .map(
+        (
+          result,
+          index
+        ) => `
 
-      <tr>
+          <tr>
 
-        <td>
-          <b>#${index + 1}</b>
-        </td>
+            <td>
 
-        <td>
-          <b>
-            ${escapeHtml(
-              result.name
-            )}
-          </b>
+              <span
+                class="badge blue"
+              >
+                #${index + 1}
+              </span>
 
-          <br>
+            </td>
 
-          <span class="muted">
-            ${escapeHtml(
-              result.email
-            )}
-          </span>
-        </td>
 
-        <td>
-          ${escapeHtml(
-            result.exam ||
-            result.examTitle ||
-            "-"
-          )}
-        </td>
+            <td>
 
-        <td>
-          ${escapeHtml(
-            result.center ||
-            result.centerCode ||
-            "-"
-          )}
-        </td>
+              <b>
+                ${esc(
+                  result.name
+                )}
+              </b>
 
-        <td>
+              <br>
 
-          <span class="badge blue">
-            ${
-              Number(result.score) || 0
-            }/
-            ${
-              Number(result.total) || 0
-            }
-          </span>
+              <span
+                class="muted"
+              >
+                ${esc(
+                  result.email
+                )}
+              </span>
 
-        </td>
+            </td>
 
-        <td>
-          ${
-            Number(result.correct) || 0
-          }
-        </td>
 
-        <td>
-          ${
-            Number(result.wrong) || 0
-          }
-        </td>
+            <td>
+              ${esc(
+                result.examTitle ||
+                result.exam ||
+                "-"
+              )}
+            </td>
 
-        <td>
-          ${
-            (
-              Number(result.correct) ||
-              0
-            ) +
-            (
-              Number(result.wrong) ||
-              0
-            )
-          }
-        </td>
 
-        <td>
-          ${formatDate(
-            result.submittedAt
-          )}
-        </td>
+            <td>
+              ${esc(
+                result.center ||
+                result.centerCode ||
+                "-"
+              )}
+            </td>
 
-        <td>
-          ${
-            result.rating
-              ? escapeHtml(
-                  result.rating
-                ) + "/5"
-              : "-"
-          }
-        </td>
 
-        <td>
+            <td>
 
-          <button
-            class="btn light view-result"
-            data-id="${result.id}"
-          >
-            View
-          </button>
+              <span
+                class="badge blue"
+              >
+                ${
+                  Number(
+                    result.score
+                  ) || 0
+                }/${
+                  Number(
+                    result.total
+                  ) || 0
+                }
+              </span>
 
-          <button
-            class="btn danger delete-result"
-            data-id="${result.id}"
-          >
-            Delete
-          </button>
+            </td>
 
-        </td>
 
-      </tr>
+            <td>
+              ${
+                Number(
+                  result.correct
+                ) || 0
+              }
+            </td>
 
-    `).join("") ||
+
+            <td>
+              ${
+                Number(
+                  result.wrong
+                ) || 0
+              }
+            </td>
+
+
+            <td>
+              ${
+                (
+                  Number(
+                    result.correct
+                  ) || 0
+                ) +
+                (
+                  Number(
+                    result.wrong
+                  ) || 0
+                )
+              }
+            </td>
+
+
+            <td>
+              ${fmt(
+                result.submittedAt
+              )}
+            </td>
+
+
+            <td>
+              ${
+                result.rating
+                  ? `${esc(
+                      result.rating
+                    )}/5`
+                  : "-"
+              }
+            </td>
+
+
+            <td>
+
+              <button
+                type="button"
+                class="btn light view"
+                data-id="${esc(
+                  result.id
+                )}"
+              >
+                View
+              </button>
+
+
+              <button
+                type="button"
+                class="btn danger del"
+                data-id="${esc(
+                  result.id
+                )}"
+              >
+                Delete
+              </button>
+
+            </td>
+
+          </tr>
+
+        `
+      )
+      .join("") ||
 
     `
       <tr>
+
         <td
           colspan="11"
           class="empty"
         >
           No results found.
         </td>
+
       </tr>
     `;
 
 
   document
-    .querySelectorAll(".view-result")
-    .forEach(button => {
-
-      button.onclick =
-        () =>
-          showDetails(
-            button.dataset.id
-          );
-
-    });
+    .querySelectorAll(
+      ".view"
+    )
+    .forEach(
+      button =>
+        button.onclick =
+          () =>
+            showResultDetails(
+              button.dataset.id
+            )
+    );
 
 
   document
-    .querySelectorAll(".delete-result")
-    .forEach(button => {
-
-      button.onclick =
-        async () => {
-
-          if (
-            !confirm(
-              "Delete this result and attempt?"
+    .querySelectorAll(
+      ".del"
+    )
+    .forEach(
+      button =>
+        button.onclick =
+          () =>
+            deleteResult(
+              button.dataset.id
             )
-          ) {
-            return;
-          }
+    );
 
-          try {
-
-            await deleteDoc(
-              doc(
-                db,
-                "results",
-                button.dataset.id
-              )
-            );
-
-            await deleteDoc(
-              doc(
-                db,
-                "attempts",
-                button.dataset.id
-              )
-            ).catch(() => {});
-
-          } catch (error) {
-
-            alert(
-              error.message
-            );
-          }
-
-        };
-
-    });
 }
-
-
-$("resultSearch").oninput =
-  renderResults;
-
-$("resultSort").onchange =
-  renderResults;
 
 
 /* =========================================================
    RESULT DETAILS
 ========================================================= */
 
-function showDetails(id) {
+function showResultDetails(
+  id
+) {
 
   const result =
     results.find(
@@ -1663,131 +2764,181 @@ function showDetails(id) {
         item.id === id
     );
 
-  if (!result) return;
+
+  if (!result) {
+    return;
+  }
+
+
+  $("detailTitle").textContent =
+    `${result.name || "Candidate"} — Result`;
+
+
+  $("detailSubtitle").textContent =
+    `${result.examTitle || result.exam || "-"} · ${
+      result.email || "-"
+    }`;
+
 
   $("detailContent").innerHTML = `
 
-    <div class="grid2">
+    <div class="detail-grid">
 
-      <div>
-        <b>Student Name</b>
-        <p>
-          ${escapeHtml(
-            result.name
-          )}
-        </p>
-      </div>
-
-      <div>
-        <b>Email</b>
-        <p>
-          ${escapeHtml(
-            result.email
-          )}
-        </p>
-      </div>
-
-      <div>
-        <b>Exam</b>
-        <p>
-          ${escapeHtml(
-            result.exam ||
-            result.examTitle ||
-            "-"
-          )}
-        </p>
-      </div>
-
-      <div>
-        <b>Center</b>
-        <p>
-          ${escapeHtml(
-            result.center ||
-            result.centerCode ||
-            "-"
-          )}
-        </p>
-      </div>
-
-      <div>
-        <b>Score</b>
-        <p>
+      <div class="detail-box">
+        <span>Score</span>
+        <strong>
           ${
-            Number(result.score) || 0
-          } /
-          ${
-            Number(result.total) || 0
+            Number(
+              result.score
+            ) || 0
+          }/${
+            Number(
+              result.total
+            ) || 0
           }
-        </p>
+        </strong>
       </div>
 
-      <div>
-        <b>Correct / Wrong</b>
-        <p>
+
+      <div class="detail-box">
+        <span>Correct</span>
+        <strong>
           ${
-            Number(result.correct) || 0
+            Number(
+              result.correct
+            ) || 0
           }
-          /
-          ${
-            Number(result.wrong) || 0
-          }
-        </p>
+        </strong>
       </div>
 
-      <div>
-        <b>Unanswered</b>
-        <p>
+
+      <div class="detail-box">
+        <span>Wrong</span>
+        <strong>
+          ${
+            Number(
+              result.wrong
+            ) || 0
+          }
+        </strong>
+      </div>
+
+
+      <div class="detail-box">
+        <span>Unanswered</span>
+        <strong>
           ${
             Number(
               result.unanswered
             ) || 0
           }
-        </p>
+        </strong>
       </div>
 
-      <div>
-        <b>Submitted</b>
-        <p>
-          ${formatDate(
+
+      <div class="detail-box">
+        <span>Violations</span>
+        <strong>
+          ${
+            Number(
+              result.violationCount
+            ) || 0
+          }
+        </strong>
+      </div>
+
+
+      <div class="detail-box">
+        <span>Penalty</span>
+        <strong>
+          ${
+            Number(
+              result.penaltiesApplied
+            ) || 0
+          }
+        </strong>
+      </div>
+
+
+      <div class="detail-box">
+        <span>Time Taken</span>
+        <strong>
+          ${
+            result.timeTakenSeconds
+              ? formatDuration(
+                  result.timeTakenSeconds
+                )
+              : "-"
+          }
+        </strong>
+      </div>
+
+
+      <div class="detail-box">
+        <span>Submitted</span>
+        <strong>
+          ${fmt(
             result.submittedAt
           )}
-        </p>
+        </strong>
       </div>
 
     </div>
 
-    <hr>
 
-    <p>
+    <div class="summary">
+
+      <b>Center:</b>
+      ${esc(
+        result.centerCode ||
+        result.center ||
+        "-"
+      )}
+
+      <br>
+
+      <b>Auto Submitted:</b>
+      ${
+        result.autoSubmitted
+          ? "Yes"
+          : "No"
+      }
+
+      <br>
+
       <b>Rating:</b>
       ${
         result.rating
-          ? escapeHtml(
+          ? `${esc(
               result.rating
-            ) + "/5"
+            )}/5`
           : "-"
       }
-    </p>
 
-    <p>
+      <br>
+
       <b>Doubt:</b>
       ${
-        escapeHtml(
+        esc(
           result.doubt
         ) || "-"
       }
-    </p>
 
-    <p>
+      <br>
+
       <b>Feedback:</b>
       ${
-        escapeHtml(
+        esc(
           result.feedback
         ) || "-"
       }
-    </p>
 
-    <h3>Security Events</h3>
+    </div>
+
+
+    <h3>
+      Security Events
+    </h3>
 
     ${
       Array.isArray(
@@ -1798,39 +2949,156 @@ function showDetails(id) {
         ? result.violations
             .map(
               event => `
-                <p>
-                  ${escapeHtml(
-                    event.type
+
+                <div class="event">
+
+                  <b>
+                    ${esc(
+                      event.type ||
+                      "security-event"
+                    )}
+                  </b>
+
+                  <br>
+
+                  ${esc(
+                    event.message ||
+                    ""
                   )}
-                  —
-                  ${escapeHtml(
-                    event.message
-                  )}
-                  —
-                  ${formatDate(
-                    event.at
-                  )}
-                </p>
+
+                  <br>
+
+                  <span class="muted">
+                    ${fmt(
+                      event.at
+                    )}
+                  </span>
+
+                </div>
+
               `
             )
             .join("")
 
-        : "<p>None</p>"
+        : `
+            <p class="muted">
+              No security events.
+            </p>
+          `
     }
 
   `;
 
+
   $("detailModal")
     .classList
-    .remove("hidden");
+    .remove(
+      "hidden"
+    );
+
 }
 
+
+function formatDuration(
+  seconds
+) {
+
+  const value =
+    Math.max(
+      0,
+      Number(seconds) || 0
+    );
+
+
+  const minutes =
+    Math.floor(
+      value /
+      60
+    );
+
+
+  const remaining =
+    value % 60;
+
+
+  return (
+    `${minutes}m ` +
+    `${String(
+      remaining
+    ).padStart(
+      2,
+      "0"
+    )}s`
+  );
+
+}
+
+
+/* =========================================================
+   DELETE
+========================================================= */
+
+async function deleteResult(
+  id
+) {
+
+  if (
+    !confirm(
+      "Delete this result and its exam attempt?"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  try {
+
+    await deleteDoc(
+      doc(
+        db,
+        "results",
+        id
+      )
+    );
+
+
+    await deleteDoc(
+      doc(
+        db,
+        "attempts",
+        id
+      )
+    )
+    .catch(
+      () => {}
+    );
+
+
+  } catch (error) {
+
+    alert(
+      "Delete failed: " +
+      error.message
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   MODAL
+========================================================= */
 
 $("closeModal").onclick =
   () =>
     $("detailModal")
       .classList
-      .add("hidden");
+      .add(
+        "hidden"
+      );
 
 
 $("detailModal").onclick =
@@ -1843,8 +3111,12 @@ $("detailModal").onclick =
 
       $("detailModal")
         .classList
-        .add("hidden");
+        .add(
+          "hidden"
+        );
+
     }
+
   };
 
 
@@ -1855,36 +3127,34 @@ $("detailModal").onclick =
 function renderSecurity() {
 
   let tabs = 0;
+
   let copies = 0;
-  let penalty = 0;
 
-  results.forEach(result => {
-
-    tabs +=
-      Number(
-        result.tabSwitches
-      ) || 0;
-
-    copies +=
-      Number(
-        result.copiesAttempted
-      ) || 0;
-
-    penalty +=
-      Number(
-        result.penaltiesApplied
-      ) || 0;
-  });
+  let penalties = 0;
 
 
-  $("tabTotal").textContent =
-    tabs;
+  results.forEach(
+    result => {
 
-  $("copyTotal").textContent =
-    copies;
+      tabs +=
+        Number(
+          result.tabSwitches
+        ) || 0;
 
-  $("penaltyTotal").textContent =
-    penalty.toFixed(2);
+
+      copies +=
+        Number(
+          result.copiesAttempted
+        ) || 0;
+
+
+      penalties +=
+        Number(
+          result.penaltiesApplied
+        ) || 0;
+
+    }
+  );
 
 
   const flagged =
@@ -1896,218 +3166,570 @@ function renderSecurity() {
     );
 
 
+  $("violations").textContent =
+    flagged.length;
+
+
+  $("tabTotal").textContent =
+    tabs;
+
+
+  $("copyTotal").textContent =
+    copies;
+
+
+  $("penaltyTotal").textContent =
+    penalties.toFixed(2);
+
+
   $("securityRows").innerHTML =
     flagged
-      .map(result => `
+      .map(
+        result => `
 
-        <tr>
+          <tr>
 
-          <td>
-            ${escapeHtml(
-              result.name
-            )}
-          </td>
+            <td>
+              ${esc(
+                result.name
+              )}
+            </td>
 
-          <td>
-            ${escapeHtml(
-              result.email
-            )}
-          </td>
+            <td>
+              ${esc(
+                result.email
+              )}
+            </td>
 
-          <td>
-            ${
-              Number(
-                result.tabSwitches
-              ) || 0
-            }
-          </td>
-
-          <td>
-            ${
-              Number(
-                result.copiesAttempted
-              ) || 0
-            }
-          </td>
-
-          <td>
-            ${
-              Number(
-                result.violationCount
-              ) || 0
-            }
-          </td>
-
-          <td>
-            ${
-              Number(
-                result.penaltiesApplied
-              ) || 0
-            }
-          </td>
-
-          <td>
-            <span
-              class="badge ${
-                result.autoSubmitted
-                  ? "bad"
-                  : "good"
-              }"
-            >
+            <td>
               ${
-                result.autoSubmitted
-                  ? "Yes"
-                  : "No"
+                Number(
+                  result.tabSwitches
+                ) || 0
               }
-            </span>
-          </td>
+            </td>
 
-        </tr>
+            <td>
+              ${
+                Number(
+                  result.copiesAttempted
+                ) || 0
+              }
+            </td>
 
-      `)
+            <td>
+              ${
+                Number(
+                  result.violationCount
+                ) || 0
+              }
+            </td>
+
+            <td>
+              ${
+                Number(
+                  result.penaltiesApplied
+                ) || 0
+              }
+            </td>
+
+            <td>
+
+              <span
+                class="badge ${
+                  result.autoSubmitted
+                    ? "bad"
+                    : "good"
+                }"
+              >
+                ${
+                  result.autoSubmitted
+                    ? "Yes"
+                    : "No"
+                }
+              </span>
+
+            </td>
+
+          </tr>
+
+        `
+      )
       .join("") ||
 
     `
       <tr>
+
         <td
           colspan="7"
           class="empty"
         >
           No security flags.
         </td>
+
       </tr>
     `;
+
 }
+
+
+/* =========================================================
+   RESULT SEARCH
+========================================================= */
+
+$("resultSearch").oninput =
+  renderResults;
+
+
+$("examFilter").onchange =
+  renderResults;
+
+
+$("resultSort").onchange =
+  renderResults;
 
 
 /* =========================================================
    CSV
 ========================================================= */
 
-$("csv").onclick = () => {
+function csvCell(
+  value
+) {
 
-  const rows =
-    filteredResults();
+  return `"${String(
+    value ?? ""
+  ).replaceAll(
+    '"',
+    '""'
+  )}"`;
 
-  if (!rows.length) {
+}
 
-    alert(
-      "No results available."
+
+$("csv").onclick =
+  () => {
+
+    const rows =
+      getFilteredResults();
+
+
+    if (!rows.length) {
+
+      return alert(
+        "No results available."
+      );
+
+    }
+
+
+    const output = [[
+
+      "Rank",
+      "Name",
+      "Email",
+      "Exam ID",
+      "Exam",
+      "Center",
+      "Score",
+      "Total",
+      "Correct",
+      "Wrong",
+      "Unanswered",
+      "Attempted",
+      "Rating",
+      "Violations",
+      "Penalty",
+      "Auto Submitted",
+      "Time Taken",
+      "Submitted"
+
+    ]];
+
+
+    rows.forEach(
+      (
+        result,
+        index
+      ) => {
+
+        output.push([
+
+          index + 1,
+
+          result.name,
+
+          result.email,
+
+          result.examId,
+
+          result.examTitle ||
+            result.exam ||
+            "",
+
+          result.centerCode ||
+            result.center ||
+            "",
+
+          result.score,
+
+          result.total,
+
+          result.correct,
+
+          result.wrong,
+
+          result.unanswered,
+
+          (
+            Number(
+              result.correct
+            ) || 0
+          ) +
+          (
+            Number(
+              result.wrong
+            ) || 0
+          ),
+
+          result.rating,
+
+          result.violationCount,
+
+          result.penaltiesApplied,
+
+          result.autoSubmitted
+            ? "Yes"
+            : "No",
+
+          result.timeTakenSeconds
+            ? formatDuration(
+                result.timeTakenSeconds
+              )
+            : "",
+
+          fmt(
+            result.submittedAt
+          )
+
+        ]);
+
+      }
     );
 
-    return;
+
+    const csv =
+      "\ufeff" +
+      output
+        .map(
+          row =>
+            row
+              .map(csvCell)
+              .join(",")
+        )
+        .join("\n");
+
+
+    const url =
+      URL.createObjectURL(
+        new Blob(
+          [csv],
+          {
+            type:
+              "text/csv;charset=utf-8"
+          }
+        )
+      );
+
+
+    const anchor =
+      document.createElement(
+        "a"
+      );
+
+
+    anchor.href =
+      url;
+
+
+    anchor.download =
+      `TestHub-live-results-${
+        new Date()
+          .toISOString()
+          .slice(
+            0,
+            10
+          )
+      }.csv`;
+
+
+    document.body.appendChild(
+      anchor
+    );
+
+
+    anchor.click();
+
+    anchor.remove();
+
+
+    setTimeout(
+      () =>
+        URL.revokeObjectURL(
+          url
+        ),
+      500
+    );
+
+  };
+
+
+/* =========================================================
+   CLEAR
+========================================================= */
+
+async function deleteBatch(
+  docs
+) {
+
+  for (
+    let i = 0;
+    i < docs.length;
+    i += 400
+  ) {
+
+    const batch =
+      writeBatch(db);
+
+
+    docs
+      .slice(
+        i,
+        i + 400
+      )
+      .forEach(
+        document =>
+          batch.delete(
+            document.ref
+          )
+      );
+
+
+    await batch.commit();
+
   }
 
-  const header = [
-    "Rank",
-    "Name",
-    "Email",
-    "Exam",
-    "Center",
-    "Score",
-    "Total",
-    "Correct",
-    "Wrong",
-    "Unanswered",
-    "Rating",
-    "Violations",
-    "Penalty",
-    "Submitted At"
-  ];
-
-  const data =
-    rows.map(
-      (result, index) => [
-
-        index + 1,
-
-        result.name,
-
-        result.email,
-
-        result.exam ||
-          result.examTitle ||
-          "",
-
-        result.center ||
-          result.centerCode ||
-          "",
-
-        result.score,
-
-        result.total,
-
-        result.correct,
-
-        result.wrong,
-
-        result.unanswered,
-
-        result.rating,
-
-        result.violationCount,
-
-        result.penaltiesApplied,
-
-        formatDate(
-          result.submittedAt
-        )
-      ]
-    );
+}
 
 
-  const csv =
-    "\ufeff" +
-    [header, ...data]
-      .map(row =>
-        row
-          .map(
-            value =>
-              `"${String(
-                value ?? ""
-              ).replaceAll(
-                '"',
-                '""'
-              )}"`
+$("clearResults").onclick =
+  async () => {
+
+    if (!results.length) {
+
+      return alert(
+        "There are no results."
+      );
+
+    }
+
+
+    if (
+      !confirm(
+        "Delete all results and submitted attempts?"
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    try {
+
+      const [
+        resultSnapshot,
+        attemptSnapshot
+      ] =
+        await Promise.all([
+
+          getDocs(
+            collection(
+              db,
+              "results"
+            )
+          ),
+
+          getDocs(
+            collection(
+              db,
+              "attempts"
+            )
           )
-          .join(",")
-      )
-      .join("\n");
+
+        ]);
 
 
-  const url =
-    URL.createObjectURL(
-      new Blob(
-        [csv],
-        {
-          type:
-            "text/csv;charset=utf-8"
-        }
-      )
-    );
+      await deleteBatch(
+        resultSnapshot.docs
+      );
 
 
-  const link =
-    document.createElement(
-      "a"
-    );
+      await deleteBatch(
+        attemptSnapshot.docs.filter(
+          document =>
+            document.data().status ===
+            "submitted"
+        )
+      );
 
-  link.href = url;
 
-  link.download =
-    `TestHub-results-${
-      new Date()
-        .toISOString()
-        .slice(0, 10)
-    }.csv`;
+    } catch (error) {
 
-  link.click();
+      alert(
+        "Clear failed: " +
+        error.message
+      );
 
-  setTimeout(
-    () =>
-      URL.revokeObjectURL(
-        url
-      ),
-    500
+    }
+
+  };
+
+
+/* =========================================================
+   AUTH STATE
+========================================================= */
+
+onAuthStateChanged(
+  auth,
+  async user => {
+
+    unsubs
+      .splice(0)
+      .forEach(
+        unsubscribe =>
+          unsubscribe()
+      );
+
+
+    if (!user) {
+
+      currentUser =
+        null;
+
+      $("login")
+        .classList
+        .remove(
+          "hidden"
+        );
+
+      $("app")
+        .classList
+        .add(
+          "hidden"
+        );
+
+      return;
+
+    }
+
+
+    if (
+      !(await isAdmin(user))
+    ) {
+
+      msg(
+        "loginMsg",
+        "This Firebase account is not authorized in admin/{uid}.",
+        true
+      );
+
+
+      await signOut(
+        auth
+      );
+
+
+      return;
+
+    }
+
+
+    currentUser =
+      user;
+
+
+    $("login")
+      .classList
+      .add(
+        "hidden"
+      );
+
+
+    $("app")
+      .classList
+      .remove(
+        "hidden"
+      );
+
+
+    $("adminLabel").textContent =
+      user.email ||
+      user.uid;
+
+
+    await loadConfig();
+
+    subscribe();
+
+  }
+);
+
+
+/* =========================================================
+   DEFAULT SUBJECT
+========================================================= */
+
+addSubject({
+
+  name:
+    "All Questions",
+
+  count:
+    100,
+
+  source:
+    "chapter.json",
+
+  order:
+    "random"
+
+});
+
+
+document
+  .querySelectorAll(
+    ".active-exam"
+  )
+  .forEach(
+    checkbox =>
+      checkbox
+        .closest(
+          ".exam-pill"
+        )
+        ?.classList.toggle(
+          "active",
+          checkbox.checked
+        )
   );
-};
+
+
+updateSummary();
+
+
+/* LIVE CLOCK REFRESH */
+
+setInterval(
+  renderAttempts,
+  1000
+);
