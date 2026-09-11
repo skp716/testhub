@@ -1,43 +1,38 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TestHub - Computer Based Test</title>
+  <title>Online Examination</title>
 
   <style>
     :root {
       --primary: #2563eb;
       --primary-dark: #1d4ed8;
-      --secondary: #64748b;
-      --success: #16a34a;
-      --warning: #d97706;
-      --danger: #dc2626;
       --bg: #f1f5f9;
       --card: #ffffff;
-      --border: #dbe3ef;
       --text: #0f172a;
       --muted: #64748b;
-      --radius: 12px;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
     }
 
     * {
       box-sizing: border-box;
-      margin: 0;
-      padding: 0;
     }
 
     body {
+      margin: 0;
       font-family: Arial, Helvetica, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
     }
 
     button,
     input,
-    select,
     textarea {
       font: inherit;
     }
@@ -46,19 +41,32 @@
       cursor: pointer;
     }
 
-    .hidden {
-      display: none !important;
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .page {
       min-height: 100vh;
-      padding: 24px;
+      padding: 24px 16px;
     }
 
     .container {
       width: 100%;
-      max-width: 1180px;
+      max-width: 1100px;
       margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .hidden {
+      display: none !important;
     }
 
     .brand {
@@ -66,83 +74,108 @@
       margin-bottom: 24px;
     }
 
-    .brand h1 {
+    .brand-logo {
+      width: 76px;
+      height: 76px;
+      object-fit: contain;
+      border-radius: 16px;
+      margin-bottom: 12px;
+    }
+
+    .brand-fallback {
+      width: 76px;
+      height: 76px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      background: var(--primary);
+      color: white;
       font-size: 30px;
-      color: var(--primary);
-      margin-bottom: 8px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 28px;
+      color: var(--text);
     }
 
     .brand p {
+      margin: 8px 0 0;
       color: var(--muted);
       font-size: 14px;
     }
 
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 24px;
     }
 
-    .login-card {
-      max-width: 500px;
-      margin: 45px auto;
-      padding: 30px;
-    }
-
-    .card-title {
-      font-size: 22px;
-      margin-bottom: 8px;
-    }
-
-    .card-subtitle {
+    .section-subtitle {
+      margin: 0 0 24px;
       color: var(--muted);
-      font-size: 14px;
-      margin-bottom: 24px;
       line-height: 1.6;
     }
 
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
     .form-group {
-      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .form-group label {
-      display: block;
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
       font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 7px;
+      font-weight: 700;
+      color: var(--text);
     }
 
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
+    input,
+    textarea {
       width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
       padding: 12px 14px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
       outline: none;
       background: #fff;
       color: var(--text);
     }
 
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
+    input:focus,
+    textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
     }
 
-    .btn {
-      border: none;
-      border-radius: 8px;
-      padding: 12px 18px;
-      font-weight: 600;
-      transition: 0.2s;
+    textarea {
+      min-height: 110px;
+      resize: vertical;
     }
 
-    .btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-weight: 700;
+      transition: 0.2s;
     }
 
     .btn-primary {
@@ -150,22 +183,17 @@
       color: white;
     }
 
-    .btn-primary:hover:not(:disabled) {
+    .btn-primary:hover {
       background: var(--primary-dark);
     }
 
     .btn-secondary {
       background: #e2e8f0;
-      color: #334155;
+      color: #0f172a;
     }
 
     .btn-success {
       background: var(--success);
-      color: white;
-    }
-
-    .btn-warning {
-      background: var(--warning);
       color: white;
     }
 
@@ -174,798 +202,541 @@
       color: white;
     }
 
-    .btn-outline {
-      background: white;
-      color: var(--primary);
-      border: 1px solid var(--primary);
+    .btn-warning {
+      background: #f59e0b;
+      color: white;
     }
 
-    .full-width {
-      width: 100%;
-    }
-
-    .message {
-      margin-top: 15px;
-      padding: 11px 13px;
-      border-radius: 8px;
+    .notice {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #dcfce7;
+      color: #166534;
       font-size: 14px;
       line-height: 1.5;
-      display: none;
     }
 
-    .message.show {
-      display: block;
-    }
-
-    .message.error {
-      background: #fef2f2;
+    .notice.error {
+      background: #fee2e2;
       color: #991b1b;
-      border: 1px solid #fecaca;
     }
 
-    .message.success {
-      background: #f0fdf4;
-      color: #166534;
-      border: 1px solid #bbf7d0;
-    }
-
-    .message.info {
+    .info-box {
       background: #eff6ff;
-      color: #1e40af;
       border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      line-height: 1.7;
+      color: #1e40af;
     }
 
-    .topbar {
-      background: white;
-      border-bottom: 1px solid var(--border);
-      padding: 15px 24px;
-      position: sticky;
-      top: 0;
-      z-index: 20;
+    .instruction-list {
+      padding-left: 22px;
+      line-height: 1.9;
+      color: #334155;
     }
 
-    .topbar-inner {
-      max-width: 1400px;
-      margin: 0 auto;
+    .consent-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .consent-row input {
+      width: auto;
+      margin-top: 4px;
+    }
+
+    /* Exam Header */
+    .exam-header {
+      display: flex;
       justify-content: space-between;
-      gap: 18px;
-    }
-
-    .exam-brand {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .exam-brand strong {
-      font-size: 18px;
-      color: var(--primary);
-    }
-
-    .exam-brand span {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .candidate-info {
-      display: flex;
       align-items: center;
-      gap: 16px;
-      font-size: 13px;
-      color: var(--muted);
+      gap: 18px;
+      margin-bottom: 18px;
+      padding: 18px 22px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
     }
 
-    .candidate-info strong {
-      color: var(--text);
+    .exam-header h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+    }
+
+    .candidate-label {
+      color: var(--muted);
+      font-size: 14px;
     }
 
     .timer-box {
-      min-width: 115px;
+      min-width: 130px;
       text-align: center;
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-      border-radius: 9px;
-      padding: 9px 12px;
-      font-weight: 700;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 800;
+      font-size: 20px;
     }
 
-    .timer-box.warning {
+    .security-alert {
+      margin-bottom: 18px;
+      padding: 12px 16px;
+      border-radius: 10px;
       background: #fff7ed;
-      color: #c2410c;
-      border-color: #fed7aa;
-    }
-
-    .timer-box.danger {
-      background: #fef2f2;
-      color: #b91c1c;
-      border-color: #fecaca;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      font-size: 14px;
     }
 
     .exam-layout {
-      max-width: 1400px;
-      margin: 22px auto;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 310px;
+      grid-template-columns: minmax(0, 1fr) 280px;
       gap: 20px;
+      align-items: start;
     }
 
-    .exam-main {
-      min-width: 0;
-    }
-
-    .question-card {
+    .question-card,
+    .side-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
       padding: 24px;
-      min-height: 520px;
     }
 
-    .question-header {
+    .question-top {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 15px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 22px;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
     }
 
     .question-number {
-      font-size: 18px;
+      font-size: 14px;
+      color: var(--muted);
       font-weight: 700;
     }
 
-    .question-status {
-      font-size: 12px;
-      color: var(--muted);
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      padding: 7px 10px;
-      border-radius: 7px;
-    }
-
     .question-text {
-      font-size: 18px;
-      line-height: 1.7;
-      margin-bottom: 25px;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.6;
+      margin-bottom: 20px;
       white-space: pre-wrap;
     }
 
     .question-image {
-      max-width: 100%;
-      max-height: 280px;
-      object-fit: contain;
       display: block;
-      margin: 0 auto 24px;
-      border-radius: 8px;
+      max-width: 100%;
+      max-height: 320px;
+      object-fit: contain;
+      margin: 0 auto 20px;
+      border-radius: 10px;
     }
 
     .options {
-      display: grid;
-      gap: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .option {
       display: flex;
       align-items: flex-start;
       gap: 12px;
-      padding: 15px;
-      border: 1px solid #cbd5e1;
-      border-radius: 9px;
-      background: white;
-      cursor: pointer;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
       transition: 0.2s;
+      cursor: pointer;
     }
 
     .option:hover {
-      border-color: var(--primary);
-      background: #f8fbff;
-    }
-
-    .option.selected {
       border-color: var(--primary);
       background: #eff6ff;
     }
 
     .option input {
+      width: auto;
       margin-top: 4px;
-      accent-color: var(--primary);
     }
 
-    .option-label {
-      font-weight: 700;
-      min-width: 24px;
-      color: var(--primary);
-    }
-
-    .option-text {
+    .option label {
+      cursor: pointer;
+      font-weight: 500;
       line-height: 1.5;
-      white-space: pre-wrap;
+      flex: 1;
     }
 
     .question-actions {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 10px;
       flex-wrap: wrap;
-      margin-top: 28px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
+      gap: 12px;
+      margin-top: 24px;
     }
 
-    .action-group {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .sidebar {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .sidebar-card {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
-    }
-
-    .sidebar-card h3 {
-      font-size: 16px;
-      margin-bottom: 15px;
+    .palette-title {
+      margin: 0 0 14px;
+      font-size: 18px;
     }
 
     .palette {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 9px;
+      gap: 8px;
     }
 
-    .palette-btn {
-      height: 38px;
-      border-radius: 7px;
-      border: 1px solid #cbd5e1;
-      background: white;
-      color: #334155;
-      font-size: 13px;
+    .palette button {
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      color: var(--text);
+      border-radius: 8px;
+      min-height: 38px;
       font-weight: 700;
     }
 
-    .palette-btn:hover {
+    .palette button:hover {
       border-color: var(--primary);
     }
 
-    .palette-btn.current {
-      border: 2px solid #1d4ed8;
-      color: #1d4ed8;
+    .palette button.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
     }
 
-    .palette-btn.answered {
+    .palette button.answered {
       background: #dcfce7;
-      border-color: #86efac;
       color: #166534;
-    }
-
-    .palette-btn.marked {
-      background: #fef3c7;
-      border-color: #fcd34d;
-      color: #92400e;
-    }
-
-    .palette-btn.visited {
-      background: #e0e7ff;
-      border-color: #a5b4fc;
-      color: #3730a3;
-    }
-
-    .legend {
-      display: grid;
-      gap: 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-    }
-
-    .legend-box {
-      width: 18px;
-      height: 18px;
-      border-radius: 4px;
-      border: 1px solid #cbd5e1;
-      background: white;
-    }
-
-    .legend-box.answered {
-      background: #dcfce7;
       border-color: #86efac;
     }
 
-    .legend-box.marked {
-      background: #fef3c7;
-      border-color: #fcd34d;
+    .palette button.active.answered {
+      background: var(--primary);
+      color: white;
     }
 
-    .legend-box.visited {
-      background: #e0e7ff;
-      border-color: #a5b4fc;
-    }
-
-    .legend-box.current {
-      border: 2px solid #1d4ed8;
-    }
-
-    .instructions-card {
-      max-width: 850px;
-      margin: 35px auto;
-      padding: 30px;
-    }
-
-    .exam-summary {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin: 22px 0;
-    }
-
-    .summary-item {
-      padding: 15px;
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      text-align: center;
-    }
-
-    .summary-item strong {
-      display: block;
-      font-size: 21px;
-      color: var(--primary);
-      margin-bottom: 5px;
-    }
-
-    .summary-item span {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .instructions-list {
-      padding-left: 20px;
-      margin: 20px 0;
-      line-height: 1.9;
-      color: #334155;
-      font-size: 14px;
-    }
-
-    .instructions-list li {
-      margin-bottom: 6px;
-    }
-
-    .consent {
+    .stats {
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin: 22px 0;
-      padding: 14px;
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 14px;
-      line-height: 1.5;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 24px;
     }
 
-    .consent input {
-      margin-top: 3px;
-      accent-color: var(--primary);
-    }
-
-    .instructions-actions {
+    .stat-row {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 25px;
-    }
-
-    .result-card {
-      max-width: 850px;
-      margin: 45px auto;
-      padding: 30px;
-    }
-
-    .result-header {
-      text-align: center;
-      margin-bottom: 28px;
-    }
-
-    .result-header h2 {
-      font-size: 28px;
-      color: var(--success);
-      margin-bottom: 8px;
-    }
-
-    .result-header p {
-      color: var(--muted);
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 10px;
       font-size: 14px;
     }
 
-    .result-stats {
+    .stat-row strong {
+      color: var(--primary);
+    }
+
+    /* Result */
+    .result-card {
+      text-align: center;
+    }
+
+    .score {
+      font-size: 54px;
+      font-weight: 800;
+      color: var(--primary);
+      margin: 12px 0;
+    }
+
+    .result-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 25px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 24px 0;
     }
 
     .result-stat {
-      padding: 18px 12px;
-      text-align: center;
       background: #f8fafc;
       border: 1px solid var(--border);
-      border-radius: 9px;
+      border-radius: 12px;
+      padding: 18px;
     }
 
     .result-stat strong {
       display: block;
       font-size: 25px;
-      color: var(--primary);
-      margin-bottom: 5px;
+      margin-bottom: 6px;
     }
 
     .result-stat span {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 13px;
     }
 
-    .result-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-
-    .result-table th,
-    .result-table td {
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
+    .review-ledger {
       text-align: left;
-      font-size: 14px;
-    }
-
-    .result-table th {
+      margin-top: 24px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
       background: #f8fafc;
-      font-weight: 700;
+      white-space: pre-wrap;
+      line-height: 1.7;
     }
 
-    .feedback-section {
-      margin-top: 28px;
-      padding-top: 22px;
+    .feedback-box {
+      text-align: left;
+      margin-top: 26px;
+      padding-top: 24px;
       border-top: 1px solid var(--border);
     }
 
-    .feedback-section h3 {
-      font-size: 18px;
-      margin-bottom: 15px;
-    }
-
-    .rating-group {
+    .stars {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 8px;
       margin: 12px 0 18px;
     }
 
-    .rating-group label {
-      cursor: pointer;
+    .stars button {
+      border: 0;
+      background: transparent;
+      font-size: 30px;
+      color: #cbd5e1;
+      padding: 0;
     }
 
-    .rating-group input {
-      margin-right: 5px;
-      accent-color: var(--primary);
+    .stars button.selected {
+      color: #f59e0b;
     }
 
-    .footer-note {
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 25px;
+    #feedbackMsg {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--success);
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 800px) {
       .exam-layout {
         grid-template-columns: 1fr;
       }
 
-      .sidebar {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .topbar-inner {
+      .exam-header {
         align-items: flex-start;
         flex-direction: column;
       }
 
-      .candidate-info {
+      .timer-box {
         width: 100%;
-        justify-content: space-between;
       }
     }
 
     @media (max-width: 600px) {
       .page {
-        padding: 14px;
+        padding: 12px;
       }
 
-      .login-card,
-      .instructions-card,
-      .result-card {
-        padding: 20px;
-        margin: 20px auto;
+      .card,
+      .question-card,
+      .side-card {
+        padding: 18px;
+      }
+
+      .form-grid,
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-group.full {
+        grid-column: auto;
       }
 
       .brand h1 {
-        font-size: 25px;
-      }
-
-      .exam-summary,
-      .result-stats {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .sidebar {
-        display: flex;
-      }
-
-      .question-card {
-        padding: 17px;
+        font-size: 23px;
       }
 
       .question-text {
-        font-size: 16px;
+        font-size: 18px;
       }
 
-      .question-actions {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .action-group {
-        width: 100%;
-      }
-
-      .action-group .btn {
-        flex: 1;
-      }
-
-      .instructions-actions {
-        flex-direction: column-reverse;
-      }
-
-      .instructions-actions .btn {
-        width: 100%;
-      }
-
-      .candidate-info {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 8px;
+      .question-actions .btn,
+      .btn-row .btn {
+        flex: 1 1 100%;
       }
     }
   </style>
 </head>
 
 <body>
-
-  <!-- LOGIN VIEW -->
-  <section id="loginView" class="page">
+  <main class="page">
     <div class="container">
-      <div class="brand">
-        <h1 id="loginBrandName">TestHub</h1>
-        <p>Computer Based Test Examination Portal</p>
-      </div>
 
-      <div class="card login-card">
-        <h2 class="card-title">Candidate Login</h2>
-        <p class="card-subtitle">
-          Enter your details to continue to the examination.
-        </p>
+      <!-- LOGIN VIEW -->
+      <section id="loginView" class="card">
+        <div class="brand">
+          <img
+            id="loginLogo"
+            class="brand-logo hidden"
+            src=""
+            alt="Institute Logo"
+          />
 
-        <form id="loginForm">
-          <div class="form-group">
-            <label for="candidateName">Candidate Name</label>
-            <input
-              type="text"
-              id="candidateName"
-              placeholder="Enter your full name"
-              required
-              autocomplete="name"
-            />
+          <div id="loginFallback" class="brand-fallback">
+            E
           </div>
 
-          <div class="form-group">
-            <label for="candidateEmail">Email Address</label>
-            <input
-              type="email"
-              id="candidateEmail"
-              placeholder="Enter your email address"
-              required
-              autocomplete="email"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="centerCode">Center Code</label>
-            <input
-              type="text"
-              id="centerCode"
-              placeholder="Enter center code"
-              required
-              autocomplete="off"
-            />
-          </div>
-
-          <button type="submit" class="btn btn-primary full-width">
-            Continue
-          </button>
-
-          <div id="loginMessage" class="message"></div>
-        </form>
-      </div>
-
-      <p class="footer-note">
-        Please use a stable internet connection during the examination.
-      </p>
-    </div>
-  </section>
-
-
-  <!-- INSTRUCTIONS VIEW -->
-  <section id="instructionsView" class="page hidden">
-    <div class="container">
-      <div class="brand">
-        <h1 id="instructionsBrandName">TestHub</h1>
-        <p>Examination Instructions</p>
-      </div>
-
-      <div class="card instructions-card">
-        <h2 class="card-title" id="instructionsExamTitle">
-          Examination Instructions
-        </h2>
-
-        <p class="card-subtitle">
-          Read all instructions carefully before starting the examination.
-        </p>
-
-        <div class="exam-summary">
-          <div class="summary-item">
-            <strong id="instructionQuestionCount">0</strong>
-            <span>Total Questions</span>
-          </div>
-
-          <div class="summary-item">
-            <strong id="instructionDuration">0</strong>
-            <span>Duration in Minutes</span>
-          </div>
-
-          <div class="summary-item">
-            <strong id="instructionMarks">0</strong>
-            <span>Total Marks</span>
-          </div>
-
-          <div class="summary-item">
-            <strong id="instructionNegative">0</strong>
-            <span>Negative Marks</span>
-          </div>
+          <h1 id="instituteName">Online Examination</h1>
+          <p id="examInfo">Please enter your details to continue.</p>
         </div>
 
-        <h3>General Instructions</h3>
+        <h2 class="section-title">Candidate Login</h2>
+        <p class="section-subtitle">
+          Fill in your basic details before starting the examination.
+        </p>
 
-        <ol class="instructions-list">
-          <li>Make sure that your name and other details are correct.</li>
-          <li>Do not refresh the browser during the examination.</li>
-          <li>Your answers will be saved automatically.</li>
+        <form id="candidateForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="candidateName">Candidate Name</label>
+              <input
+                type="text"
+                id="candidateName"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="candidateEmail">Email Address</label>
+              <input
+                type="email"
+                id="candidateEmail"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div class="form-group full">
+              <label for="centerCode">Center Code</label>
+              <input
+                type="text"
+                id="centerCode"
+                placeholder="Enter center code if provided"
+              />
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button
+              type="submit"
+              id="continueBtn"
+              class="btn btn-primary"
+              disabled
+            >
+              Continue
+            </button>
+          </div>
+
+          <div id="loginMessage" class="notice hidden"></div>
+        </form>
+      </section>
+
+      <!-- INSTRUCTIONS VIEW -->
+      <section id="instructionsView" class="card hidden">
+        <h2 class="section-title">Examination Instructions</h2>
+        <p class="section-subtitle">
+          Read all instructions carefully before starting the exam.
+        </p>
+
+        <div id="configSummary" class="info-box"></div>
+
+        <ul class="instruction-list">
+          <li>Keep your internet connection stable during the exam.</li>
+          <li>Do not refresh or close the examination window.</li>
+          <li>Do not switch tabs or windows unnecessarily.</li>
+          <li>Select the most appropriate answer for every question.</li>
           <li>You can navigate between questions using the question palette.</li>
-          <li>You can mark questions for review and revisit them later.</li>
-          <li>Do not open another tab or window during the examination.</li>
-          <li>Do not use browser back, reload, copy, paste or developer tools.</li>
-          <li>The examination will be submitted automatically when the timer ends.</li>
-          <li>Once submitted, the examination cannot be restarted.</li>
-        </ol>
+          <li>Submit the examination only after reviewing your answers.</li>
+        </ul>
 
-        <label class="consent">
-          <input type="checkbox" id="instructionConsent" />
+        <label class="consent-row">
+          <input type="checkbox" id="consent" />
           <span>
-            I have read and understood all instructions. I agree to follow
-            the examination rules and start the test.
+            I have read and understood all the instructions and agree to follow
+            the examination rules.
           </span>
         </label>
 
-        <div class="instructions-actions">
-          <button type="button" id="backToLoginBtn" class="btn btn-secondary">
+        <div class="btn-row">
+          <button type="button" id="backBtn" class="btn btn-secondary">
             Back
           </button>
 
           <button
             type="button"
-            id="startExamBtn"
+            id="startBtn"
             class="btn btn-primary"
             disabled
           >
             Start Examination
           </button>
         </div>
+      </section>
 
-        <div id="instructionMessage" class="message"></div>
-      </div>
-    </div>
-  </section>
-
-
-  <!-- EXAM VIEW -->
-  <section id="examView" class="hidden">
-
-    <header class="topbar">
-      <div class="topbar-inner">
-        <div class="exam-brand">
-          <strong id="examTitle">TestHub Examination</strong>
-          <span id="examSubtitle">Computer Based Test</span>
-        </div>
-
-        <div class="candidate-info">
+      <!-- EXAM VIEW -->
+      <section id="examView" class="hidden">
+        <div class="exam-header">
           <div>
-            Candidate:
-            <strong id="examCandidateName">-</strong>
-          </div>
-
-          <div>
-            Question:
-            <strong id="examQuestionCounter">0 / 0</strong>
-          </div>
-
-          <div id="examTimer" class="timer-box">
-            00:00:00
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <main class="exam-layout">
-
-      <section class="exam-main">
-        <div class="card question-card">
-
-          <div class="question-header">
-            <div id="questionNumber" class="question-number">
-              Question 1
-            </div>
-
-            <div id="questionStatus" class="question-status">
-              Not Answered
+            <h2 id="examTitle">Online Examination</h2>
+            <div id="candidateLabel" class="candidate-label">
+              Candidate
             </div>
           </div>
 
-          <img
-            id="questionImage"
-            class="question-image hidden"
-            alt="Question image"
-          />
-
-          <div id="questionText" class="question-text">
-            Question will appear here.
+          <div id="timer" class="timer-box">
+            00:00
           </div>
+        </div>
 
-          <div id="optionsContainer" class="options"></div>
+        <div id="securityAlert" class="security-alert hidden"></div>
 
-          <div class="question-actions">
-            <div class="action-group">
+        <div class="exam-layout">
+          <div class="question-card">
+            <div class="question-top">
+              <div id="questionNumber" class="question-number">
+                Question 1
+              </div>
+            </div>
+
+            <img
+              id="questionImage"
+              class="question-image hidden"
+              src=""
+              alt="Question Image"
+            />
+
+            <div id="questionText" class="question-text">
+              Question will appear here.
+            </div>
+
+            <div id="options" class="options"></div>
+
+            <div class="question-actions">
               <button
                 type="button"
-                id="previousBtn"
+                id="prevBtn"
                 class="btn btn-secondary"
               >
                 Previous
@@ -973,17 +744,15 @@
 
               <button
                 type="button"
-                id="clearAnswerBtn"
-                class="btn btn-outline"
+                id="saveNextBtn"
+                class="btn btn-primary"
               >
-                Clear Answer
+                Save & Next
               </button>
-            </div>
 
-            <div class="action-group">
               <button
                 type="button"
-                id="markReviewBtn"
+                id="reviewBtn"
                 class="btn btn-warning"
               >
                 Mark for Review
@@ -991,232 +760,122 @@
 
               <button
                 type="button"
-                id="nextBtn"
-                class="btn btn-primary"
+                id="submitBtn"
+                class="btn btn-danger"
               >
-                Save & Next
+                Submit Exam
               </button>
             </div>
           </div>
 
-          <div id="examMessage" class="message"></div>
+          <aside class="side-card">
+            <h3 class="palette-title">Question Palette</h3>
+            <div id="palette" class="palette"></div>
+
+            <div class="stats">
+              <div class="stat-row">
+                <span>Security Violations</span>
+                <strong id="securityCount">0</strong>
+              </div>
+
+              <div class="stat-row">
+                <span>Penalty Count</span>
+                <strong id="penaltyCount">0</strong>
+              </div>
+            </div>
+          </aside>
         </div>
       </section>
 
+      <!-- RESULT VIEW -->
+      <section id="resultView" class="card result-card hidden">
+        <h2 class="section-title">Examination Result</h2>
+        <p class="section-subtitle">
+          Your examination has been submitted successfully.
+        </p>
 
-      <aside class="sidebar">
+        <div id="finalScore" class="score">0</div>
 
-        <div class="sidebar-card">
-          <h3>Question Palette</h3>
-          <div id="questionPalette" class="palette"></div>
-        </div>
+        <div class="result-grid">
+          <div class="result-stat">
+            <strong id="accuracy">0%</strong>
+            <span>Accuracy</span>
+          </div>
 
-        <div class="sidebar-card">
-          <h3>Legend</h3>
+          <div class="result-stat">
+            <strong id="correctCount">0</strong>
+            <span>Correct Answers</span>
+          </div>
 
-          <div class="legend">
-            <div class="legend-item">
-              <span class="legend-box current"></span>
-              <span>Current Question</span>
-            </div>
-
-            <div class="legend-item">
-              <span class="legend-box answered"></span>
-              <span>Answered</span>
-            </div>
-
-            <div class="legend-item">
-              <span class="legend-box marked"></span>
-              <span>Marked for Review</span>
-            </div>
-
-            <div class="legend-item">
-              <span class="legend-box visited"></span>
-              <span>Visited</span>
-            </div>
-
-            <div class="legend-item">
-              <span class="legend-box"></span>
-              <span>Not Visited</span>
-            </div>
+          <div class="result-stat">
+            <strong id="wrongCount">0</strong>
+            <span>Wrong Answers</span>
           </div>
         </div>
 
-        <div class="sidebar-card">
-          <h3>Exam Summary</h3>
+        <div id="securitySummary" class="info-box"></div>
 
-          <div class="legend">
-            <div class="legend-item">
-              <span>Total:</span>
-              <strong id="totalQuestionSide">0</strong>
-            </div>
+        <div id="reviewLedger" class="review-ledger"></div>
 
-            <div class="legend-item">
-              <span>Answered:</span>
-              <strong id="answeredQuestionSide">0</strong>
-            </div>
+        <div class="feedback-box">
+          <h3>Share Your Feedback</h3>
 
-            <div class="legend-item">
-              <span>Marked:</span>
-              <strong id="markedQuestionSide">0</strong>
-            </div>
-
-            <div class="legend-item">
-              <span>Not Answered:</span>
-              <strong id="unansweredQuestionSide">0</strong>
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          id="submitExamBtn"
-          class="btn btn-danger full-width"
-        >
-          Submit Examination
-        </button>
-
-      </aside>
-    </main>
-  </section>
-
-
-  <!-- RESULT VIEW -->
-  <section id="resultView" class="page hidden">
-    <div class="container">
-      <div class="brand">
-        <h1>TestHub</h1>
-        <p>Examination Result</p>
-      </div>
-
-      <div class="card result-card">
-
-        <div class="result-header">
-          <h2 id="resultStatus">Examination Submitted</h2>
-          <p id="resultMessage">
-            Your examination has been submitted successfully.
+          <p class="section-subtitle">
+            Please rate your examination experience.
           </p>
-        </div>
 
-        <div class="result-stats">
-          <div class="result-stat">
-            <strong id="resultScore">0</strong>
-            <span>Score</span>
-          </div>
-
-          <div class="result-stat">
-            <strong id="resultTotalMarks">0</strong>
-            <span>Total Marks</span>
-          </div>
-
-          <div class="result-stat">
-            <strong id="resultCorrect">0</strong>
-            <span>Correct</span>
-          </div>
-
-          <div class="result-stat">
-            <strong id="resultWrong">0</strong>
-            <span>Wrong</span>
-          </div>
-        </div>
-
-        <table class="result-table">
-          <thead>
-            <tr>
-              <th>Particular</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr>
-              <td>Candidate Name</td>
-              <td id="resultCandidateName">-</td>
-            </tr>
-
-            <tr>
-              <td>Email</td>
-              <td id="resultCandidateEmail">-</td>
-            </tr>
-
-            <tr>
-              <td>Exam Name</td>
-              <td id="resultExamName">-</td>
-            </tr>
-
-            <tr>
-              <td>Attempt ID</td>
-              <td id="resultAttemptId">-</td>
-            </tr>
-
-            <tr>
-              <td>Submitted At</td>
-              <td id="resultSubmittedAt">-</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="feedback-section">
-          <h3>Exam Feedback</h3>
-
-          <div class="form-group">
-            <label>How was your exam experience?</label>
-
-            <div class="rating-group">
-              <label>
-                <input type="radio" name="examRating" value="1" />
-                1
-              </label>
-
-              <label>
-                <input type="radio" name="examRating" value="2" />
-                2
-              </label>
-
-              <label>
-                <input type="radio" name="examRating" value="3" />
-                3
-              </label>
-
-              <label>
-                <input type="radio" name="examRating" value="4" />
-                4
-              </label>
-
-              <label>
-                <input type="radio" name="examRating" value="5" />
-                5
-              </label>
-            </div>
+          <div id="stars" class="stars">
+            <button type="button" data-rating="1" aria-label="1 star">
+              ★
+            </button>
+            <button type="button" data-rating="2" aria-label="2 stars">
+              ★
+            </button>
+            <button type="button" data-rating="3" aria-label="3 stars">
+              ★
+            </button>
+            <button type="button" data-rating="4" aria-label="4 stars">
+              ★
+            </button>
+            <button type="button" data-rating="5" aria-label="5 stars">
+              ★
+            </button>
           </div>
 
           <div class="form-group">
-            <label for="feedbackText">Feedback</label>
+            <label for="doubt">Any Doubt or Query</label>
             <textarea
-              id="feedbackText"
-              rows="4"
-              placeholder="Write your feedback..."
+              id="doubt"
+              placeholder="Write your doubt or query"
             ></textarea>
           </div>
 
-          <button
-            type="button"
-            id="submitFeedbackBtn"
-            class="btn btn-primary"
-          >
-            Submit Feedback
-          </button>
+          <div class="form-group" style="margin-top: 16px;">
+            <label for="feedback">Your Feedback</label>
+            <textarea
+              id="feedback"
+              placeholder="Write your feedback"
+            ></textarea>
+          </div>
 
-          <div id="feedbackMessage" class="message"></div>
+          <div class="btn-row">
+            <button
+              type="button"
+              id="feedbackBtn"
+              class="btn btn-primary"
+            >
+              Submit Feedback
+            </button>
+          </div>
+
+          <div id="feedbackMsg"></div>
         </div>
+      </section>
 
-      </div>
     </div>
-  </section>
+  </main>
 
-
-  <!-- Firebase-connected frontend logic -->
+  <!-- Existing JavaScript files -->
   <script type="module" src="./student.js"></script>
-
 </body>
 </html>
