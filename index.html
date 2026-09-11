@@ -4,37 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <title>Online Examination</title>
+
   <!-- Firebase and Cloud Functions Security Policy -->
   <meta
     http-equiv="Content-Security-Policy"
     content="
       default-src 'self';
-      script-src 'self' https://www.gstatic.com https://www.googleapis.com https://apis.google.com;
+      script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com;
       style-src 'self' 'unsafe-inline';
       img-src 'self' data: blob: https:;
       font-src 'self' data: https:;
-      connect-src 'self'
+      connect-src
+        'self'
         https://*.googleapis.com
         https://*.firebaseio.com
         https://*.firebaseapp.com
-        https://*.cloudfunctions.net
-        https://asia-south1-testhub-43fd8.cloudfunctions.net
         https://identitytoolkit.googleapis.com
         https://securetoken.googleapis.com
-        https://firestore.googleapis.com
-        https://firebaseinstallations.googleapis.com
-        https://firebaseremoteconfig.googleapis.com
-        https://www.googleapis.com
-        https://www.gstatic.com;
-      frame-src 'self' https://*.firebaseapp.com https://accounts.google.com;
-      worker-src 'self' blob:;
+        https://asia-south1-testhub-43fd8.cloudfunctions.net;
+      frame-src 'self' https://*.firebaseapp.com https://*.google.com;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
     "
   />
-
-  <title>Online Examination</title>
 
   <style>
     :root {
@@ -286,9 +280,7 @@
       margin-top: 4px;
     }
 
-    /* =========================================================
-       EXAM SELECTOR
-    ========================================================== */
+    /* EXAM SELECTOR */
 
     .exam-selector-box {
       margin-bottom: 22px;
@@ -338,9 +330,7 @@
       font-size: 12px;
     }
 
-    /* =========================================================
-       EXAM HEADER
-    ========================================================== */
+    /* EXAM HEADER */
 
     .exam-header {
       display: flex;
@@ -554,9 +544,7 @@
       color: var(--primary);
     }
 
-    /* =========================================================
-       RESULT
-    ========================================================== */
+    /* RESULT */
 
     .result-card {
       text-align: center;
@@ -711,14 +699,10 @@
   <main class="page">
     <div class="container">
 
-      <!-- =====================================================
-           LOGIN VIEW
-      ====================================================== -->
-
+      <!-- LOGIN VIEW -->
       <section id="loginView" class="card">
 
         <div class="brand">
-
           <img
             id="loginLogo"
             class="brand-logo hidden"
@@ -737,7 +721,6 @@
           <p id="examInfo">
             Loading examination information...
           </p>
-
         </div>
 
         <h2 class="section-title">
@@ -748,10 +731,7 @@
           Select your examination and enter your details before starting.
         </p>
 
-        <!-- =====================================================
-             EXAM SELECTION
-        ====================================================== -->
-
+        <!-- EXAM SELECTION -->
         <div id="examSelectionBox" class="exam-selector-box">
 
           <label for="examSelect">
@@ -797,19 +777,14 @@
             </div>
 
           </div>
-
         </div>
 
-        <!-- =====================================================
-             CANDIDATE FORM
-        ====================================================== -->
-
+        <!-- CANDIDATE FORM -->
         <form id="candidateForm">
 
           <div class="form-grid">
 
             <div class="form-group">
-
               <label for="candidateName">
                 Candidate Name
               </label>
@@ -820,11 +795,9 @@
                 placeholder="Enter your full name"
                 required
               />
-
             </div>
 
             <div class="form-group">
-
               <label for="candidateEmail">
                 Email Address
               </label>
@@ -835,11 +808,9 @@
                 placeholder="Enter your email"
                 required
               />
-
             </div>
 
             <div class="form-group full">
-
               <label for="centerCode">
                 Center Code
               </label>
@@ -849,13 +820,11 @@
                 id="centerCode"
                 placeholder="Enter center code if provided"
               />
-
             </div>
 
           </div>
 
           <div class="btn-row">
-
             <button
               type="submit"
               id="continueBtn"
@@ -864,7 +833,6 @@
             >
               Continue
             </button>
-
           </div>
 
           <div
@@ -873,13 +841,9 @@
           ></div>
 
         </form>
-
       </section>
 
-      <!-- =====================================================
-           INSTRUCTIONS VIEW
-      ====================================================== -->
-
+      <!-- INSTRUCTIONS VIEW -->
       <section
         id="instructionsView"
         class="card hidden"
@@ -899,7 +863,6 @@
         ></div>
 
         <ul class="instruction-list">
-
           <li>
             Keep your internet connection stable during the exam.
           </li>
@@ -923,11 +886,9 @@
           <li>
             Submit the examination only after reviewing your answers.
           </li>
-
         </ul>
 
         <label class="consent-row">
-
           <input
             type="checkbox"
             id="consent"
@@ -937,7 +898,6 @@
             I have read and understood all the instructions and agree to follow
             the examination rules.
           </span>
-
         </label>
 
         <div class="btn-row">
@@ -960,13 +920,9 @@
           </button>
 
         </div>
-
       </section>
 
-      <!-- =====================================================
-           EXAM VIEW
-      ====================================================== -->
-
+      <!-- EXAM VIEW -->
       <section
         id="examView"
         class="hidden"
@@ -975,7 +931,6 @@
         <div class="exam-header">
 
           <div>
-
             <h2 id="examTitle">
               Online Examination
             </h2>
@@ -986,7 +941,6 @@
             >
               Candidate
             </div>
-
           </div>
 
           <div
@@ -1079,7 +1033,6 @@
               </button>
 
             </div>
-
           </div>
 
           <aside class="side-card">
@@ -1096,7 +1049,6 @@
             <div class="stats">
 
               <div class="stat-row">
-
                 <span>
                   Security Violations
                 </span>
@@ -1104,11 +1056,9 @@
                 <strong id="securityCount">
                   0
                 </strong>
-
               </div>
 
               <div class="stat-row">
-
                 <span>
                   Penalty Count
                 </span>
@@ -1116,21 +1066,15 @@
                 <strong id="penaltyCount">
                   0
                 </strong>
-
               </div>
 
             </div>
-
           </aside>
 
         </div>
-
       </section>
 
-      <!-- =====================================================
-           RESULT VIEW
-      ====================================================== -->
-
+      <!-- RESULT VIEW -->
       <section
         id="resultView"
         class="card result-card hidden"
@@ -1154,7 +1098,6 @@
         <div class="result-grid">
 
           <div class="result-stat">
-
             <strong id="accuracy">
               0%
             </strong>
@@ -1162,11 +1105,9 @@
             <span>
               Accuracy
             </span>
-
           </div>
 
           <div class="result-stat">
-
             <strong id="correctCount">
               0
             </strong>
@@ -1174,11 +1115,9 @@
             <span>
               Correct Answers
             </span>
-
           </div>
 
           <div class="result-stat">
-
             <strong id="wrongCount">
               0
             </strong>
@@ -1186,7 +1125,6 @@
             <span>
               Wrong Answers
             </span>
-
           </div>
 
         </div>
@@ -1307,19 +1245,15 @@
           <div id="feedbackMsg"></div>
 
         </div>
-
       </section>
 
     </div>
   </main>
 
-  <!-- =========================================================
-       STUDENT APPLICATION
-  ========================================================== -->
-
+  <!-- STUDENT APPLICATION -->
   <script
     type="module"
-    src="./student.js"
+    src="./student.js?v=8"
   ></script>
 
 </body>
