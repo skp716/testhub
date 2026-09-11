@@ -4,10 +4,39 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Firebase and Cloud Functions Security Policy -->
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="
+      default-src 'self';
+      script-src 'self' https://www.gstatic.com https://www.googleapis.com https://apis.google.com;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob: https:;
+      font-src 'self' data: https:;
+      connect-src 'self'
+        https://*.googleapis.com
+        https://*.firebaseio.com
+        https://*.firebaseapp.com
+        https://*.cloudfunctions.net
+        https://asia-south1-testhub-43fd8.cloudfunctions.net
+        https://identitytoolkit.googleapis.com
+        https://securetoken.googleapis.com
+        https://firestore.googleapis.com
+        https://firebaseinstallations.googleapis.com
+        https://firebaseremoteconfig.googleapis.com
+        https://www.googleapis.com
+        https://www.gstatic.com;
+      frame-src 'self' https://*.firebaseapp.com https://accounts.google.com;
+      worker-src 'self' blob:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+    "
+  />
+
   <title>Online Examination</title>
 
   <style>
-
     :root {
       --primary: #2563eb;
       --primary-dark: #1d4ed8;
@@ -620,7 +649,6 @@
     }
 
     @media (max-width: 800px) {
-
       .exam-layout {
         grid-template-columns: 1fr;
       }
@@ -640,7 +668,6 @@
     }
 
     @media (max-width: 600px) {
-
       .page {
         padding: 12px;
       }
@@ -676,16 +703,12 @@
       .download-actions .btn {
         width: 100%;
       }
-
     }
-
   </style>
 </head>
 
 <body>
-
   <main class="page">
-
     <div class="container">
 
       <!-- =====================================================
@@ -717,7 +740,6 @@
 
         </div>
 
-
         <h2 class="section-title">
           Candidate Login
         </h2>
@@ -725,7 +747,6 @@
         <p class="section-subtitle">
           Select your examination and enter your details before starting.
         </p>
-
 
         <!-- =====================================================
              EXAM SELECTION
@@ -779,7 +800,6 @@
 
         </div>
 
-
         <!-- =====================================================
              CANDIDATE FORM
         ====================================================== -->
@@ -803,7 +823,6 @@
 
             </div>
 
-
             <div class="form-group">
 
               <label for="candidateEmail">
@@ -818,7 +837,6 @@
               />
 
             </div>
-
 
             <div class="form-group full">
 
@@ -836,7 +854,6 @@
 
           </div>
 
-
           <div class="btn-row">
 
             <button
@@ -850,7 +867,6 @@
 
           </div>
 
-
           <div
             id="loginMessage"
             class="notice hidden"
@@ -859,7 +875,6 @@
         </form>
 
       </section>
-
 
       <!-- =====================================================
            INSTRUCTIONS VIEW
@@ -878,12 +893,10 @@
           Read all instructions carefully before starting the exam.
         </p>
 
-
         <div
           id="configSummary"
           class="info-box"
         ></div>
-
 
         <ul class="instruction-list">
 
@@ -913,7 +926,6 @@
 
         </ul>
 
-
         <label class="consent-row">
 
           <input
@@ -928,7 +940,6 @@
 
         </label>
 
-
         <div class="btn-row">
 
           <button
@@ -938,7 +949,6 @@
           >
             Back
           </button>
-
 
           <button
             type="button"
@@ -952,7 +962,6 @@
         </div>
 
       </section>
-
 
       <!-- =====================================================
            EXAM VIEW
@@ -980,7 +989,6 @@
 
           </div>
 
-
           <div
             id="timer"
             class="timer-box"
@@ -990,12 +998,10 @@
 
         </div>
 
-
         <div
           id="securityAlert"
           class="security-alert hidden"
         ></div>
-
 
         <div class="exam-layout">
 
@@ -1010,7 +1016,6 @@
                 Question 1
               </div>
 
-
               <div
                 id="questionSubject"
                 class="question-subject"
@@ -1020,14 +1025,12 @@
 
             </div>
 
-
             <img
               id="questionImage"
               class="question-image hidden"
               src=""
               alt="Question Image"
             />
-
 
             <div
               id="questionText"
@@ -1036,12 +1039,10 @@
               Question will appear here.
             </div>
 
-
             <div
               id="options"
               class="options"
             ></div>
-
 
             <div class="question-actions">
 
@@ -1053,15 +1054,13 @@
                 Previous
               </button>
 
-
               <button
                 type="button"
                 id="saveNextBtn"
                 class="btn btn-primary"
               >
-                Save & Next
+                Save &amp; Next
               </button>
-
 
               <button
                 type="button"
@@ -1070,7 +1069,6 @@
               >
                 Mark for Review
               </button>
-
 
               <button
                 type="button"
@@ -1084,19 +1082,16 @@
 
           </div>
 
-
           <aside class="side-card">
 
             <h3 class="palette-title">
               Question Palette
             </h3>
 
-
             <div
               id="palette"
               class="palette"
             ></div>
-
 
             <div class="stats">
 
@@ -1111,7 +1106,6 @@
                 </strong>
 
               </div>
-
 
               <div class="stat-row">
 
@@ -1133,7 +1127,6 @@
 
       </section>
 
-
       <!-- =====================================================
            RESULT VIEW
       ====================================================== -->
@@ -1151,14 +1144,12 @@
           Your examination has been submitted successfully.
         </p>
 
-
         <div
           id="finalScore"
           class="score"
         >
           0
         </div>
-
 
         <div class="result-grid">
 
@@ -1174,7 +1165,6 @@
 
           </div>
 
-
           <div class="result-stat">
 
             <strong id="correctCount">
@@ -1186,7 +1176,6 @@
             </span>
 
           </div>
-
 
           <div class="result-stat">
 
@@ -1202,24 +1191,20 @@
 
         </div>
 
-
         <div
           id="securitySummary"
           class="info-box"
         ></div>
-
 
         <div
           id="reviewLedger"
           class="review-ledger"
         ></div>
 
-
         <div
           id="downloadActions"
           class="download-actions"
         ></div>
-
 
         <div class="feedback-box">
 
@@ -1230,7 +1215,6 @@
           <p class="section-subtitle">
             Please rate your examination experience.
           </p>
-
 
           <div
             id="stars"
@@ -1279,7 +1263,6 @@
 
           </div>
 
-
           <div class="form-group">
 
             <label for="doubt">
@@ -1292,7 +1275,6 @@
             ></textarea>
 
           </div>
-
 
           <div
             class="form-group"
@@ -1310,7 +1292,6 @@
 
           </div>
 
-
           <div class="btn-row">
 
             <button
@@ -1323,7 +1304,6 @@
 
           </div>
 
-
           <div id="feedbackMsg"></div>
 
         </div>
@@ -1331,9 +1311,7 @@
       </section>
 
     </div>
-
   </main>
-
 
   <!-- =========================================================
        STUDENT APPLICATION
