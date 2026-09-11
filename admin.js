@@ -11,1131 +11,1990 @@ import {
 
 import {
   getFirestore,
-  collection,
   doc,
   getDoc,
-  getDocs,
   setDoc,
   deleteDoc,
-  writeBatch,
+  collection,
+  onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
-/* --------------------------------------------------
-   FIREBASE CONFIG
--------------------------------------------------- */
+
+/* =========================================================
+   FIREBASE
+========================================================= */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB-example-key",
+  apiKey: "AIzaSyBp1JrZy_dsJbXmg0jPfZrVEg7vlMbwRkM",
   authDomain: "testhub-43fd8.firebaseapp.com",
   projectId: "testhub-43fd8",
-  storageBucket: "testhub-43fd8.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:000000000000"
+  storageBucket: "testhub-43fd8.firebasestorage.app",
+  messagingSenderId: "530965492161",
+  appId: "1:530965492161:web:b8ea984ef0c9cb14763f40"
 };
-
-/*
-  IMPORTANT:
-  Apne Firebase Project Settings se original config
-  yahan paste karein agar upar wala config placeholder hai.
-*/
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* --------------------------------------------------
-   ADMIN EMAIL ALLOWLIST
--------------------------------------------------- */
-
-const ADMIN_EMAILS = [
-  "abc@gmail.com"
-];
-
-/*
-  Is email ko apne actual Firebase Authentication
-  admin email se replace karein.
-*/
-
-let currentUser = null;
-let allResults = [];
-let allAttempts = [];
-let allSecurity = [];
-let currentLogoData = "";
-
-/* --------------------------------------------------
-   DOM HELPERS
--------------------------------------------------- */
-
 const $ = id => document.getElementById(id);
 
-function showMessage(element, text, type = "normal") {
+let currentUser = null;
+let config = {};
+let results = [];
+let attempts = [];
+let unsubs = [];
+let logoData = "";
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const millis = value =>
+  value?.toMillis
+    ? value.toMillis()
+    : value?.seconds
+      ? value.seconds * 1000
+      : typeof value === "number"
+        ? value
+        : Date.parse(value) || 0;
+
+const formatDate = value =>
+  millis(value)
+    ? new Date(millis(value)).toLocaleString("en-IN")
+    : "-";
+
+const localDate = value => {
+  const n = millis(value);
+
+  if (!n) return "";
+
+  const d = new Date(n);
+
+  return new Date(
+    d - d.getTimezoneOffset() * 60000
+  ).toISOString().slice(0, 16);
+};
+
+const escapeHtml = value =>
+  String(value ?? "").replace(
+    /[&<>"']/g,
+    c => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[c])
+  );
+
+function message(id, text, error = false) {
+  const element = $(id);
+
   if (!element) return;
 
   element.textContent = text;
-  element.classList.remove("hidden", "error", "success-msg");
+  element.className =
+    `msg${error ? " error" : " success-msg"}`;
 
-  if (type === "error") {
-    element.classList.add("error");
-  }
-
-  if (type === "success") {
-    element.classList.add("success-msg");
-  }
+  element.classList.remove("hidden");
 }
 
-function hideMessage(element) {
-  if (element) {
-    element.textContent = "";
-    element.classList.add("hidden");
-  }
+function number(id, fallback = 0) {
+  const value = Number($(id)?.value);
+  return Number.isFinite(value) ? value : fallback;
 }
 
-function safeNumber(value, fallback = 0) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
 
-function safeText(value, fallback = "") {
-  return value === undefined || value === null
-    ? fallback
-    : String(value);
-}
+/* =========================================================
+   ADMIN SECURITY
+========================================================= */
 
-function formatDate(value) {
-  if (!value) return "-";
+async function isAdmin(user) {
+
+  if (!user) return false;
 
   try {
-    if (typeof value.toDate === "function") {
-      return value.toDate().toLocaleString("en-IN");
-    }
 
-    if (value.seconds) {
-      return new Date(value.seconds * 1000).toLocaleString("en-IN");
-    }
+    const snap = await getDoc(
+      doc(db, "admin", user.uid)
+    );
 
-    return new Date(value).toLocaleString("en-IN");
-  } catch {
-    return "-";
+    const data = snap.data() || {};
+
+    return (
+      snap.exists() &&
+      data.active === true &&
+      ["admin", "super_admin"].includes(
+        data.role || "admin"
+      )
+    );
+
+  } catch (error) {
+
+    console.error("Admin verification failed:", error);
+
+    return false;
   }
 }
 
-function escapeHtml(value) {
-  return safeText(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
-/* --------------------------------------------------
+/* =========================================================
    LOGIN
--------------------------------------------------- */
+========================================================= */
 
-$("loginForm").addEventListener("submit", async event => {
+$("loginForm").onsubmit = async event => {
+
   event.preventDefault();
-
-  const email = $("email").value.trim();
-  const password = $("password").value;
 
   $("loginBtn").disabled = true;
   $("loginBtn").textContent = "Logging in...";
-  hideMessage($("loginMsg"));
 
   try {
-    const credential = await signInWithEmailAndPassword(
+
+    await signInWithEmailAndPassword(
       auth,
-      email,
-      password
+      $("email").value.trim().toLowerCase(),
+      $("password").value
     );
 
-    const loggedEmail = credential.user.email.toLowerCase();
-
-    if (
-      ADMIN_EMAILS.length > 0 &&
-      !ADMIN_EMAILS.map(item => item.toLowerCase()).includes(loggedEmail)
-    ) {
-      await signOut(auth);
-      throw new Error("This account is not authorized as administrator.");
-    }
-
-    showMessage($("loginMsg"), "Login successful.", "success");
   } catch (error) {
-    showMessage(
-      $("loginMsg"),
-      `Login failed: ${error.message}`,
-      "error"
+
+    message(
+      "loginMsg",
+      "Login failed: " + error.message,
+      true
     );
+
   } finally {
+
     $("loginBtn").disabled = false;
     $("loginBtn").textContent = "Login";
   }
-});
+};
 
-$("logout").addEventListener("click", async () => {
-  await signOut(auth);
-});
 
-/* --------------------------------------------------
+/* =========================================================
    AUTH STATE
--------------------------------------------------- */
+========================================================= */
 
 onAuthStateChanged(auth, async user => {
-  currentUser = user;
+
+  unsubs.forEach(unsubscribe => {
+    try {
+      unsubscribe();
+    } catch {}
+  });
+
+  unsubs = [];
 
   if (!user) {
+
     $("login").classList.remove("hidden");
     $("app").classList.add("hidden");
+
     return;
   }
 
-  const email = safeText(user.email).toLowerCase();
+  const allowed = await isAdmin(user);
 
-  if (
-    ADMIN_EMAILS.length > 0 &&
-    !ADMIN_EMAILS.map(item => item.toLowerCase()).includes(email)
-  ) {
+  if (!allowed) {
+
     await signOut(auth);
-    showMessage(
-      $("loginMsg"),
-      "This account is not authorized as administrator.",
-      "error"
+
+    message(
+      "loginMsg",
+      "This Firebase account is not authorized in admin/{uid}.",
+      true
     );
+
     return;
   }
+
+  currentUser = user;
 
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
 
   $("adminLabel").textContent =
-    `Logged in as ${user.email}`;
+    user.email || user.uid;
 
-  await loadEverything();
+  await loadConfig();
+  subscribe();
 });
 
-/* --------------------------------------------------
+
+/* =========================================================
+   LOGOUT / REFRESH
+========================================================= */
+
+$("logout").onclick = () => signOut(auth);
+
+$("refresh").onclick = async () => {
+
+  await loadConfig();
+
+  subscribe();
+};
+
+
+/* =========================================================
    TABS
--------------------------------------------------- */
+========================================================= */
 
 document.querySelectorAll(".tab").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(item => {
-      item.classList.remove("active");
-    });
 
-    document.querySelectorAll(".panel").forEach(panel => {
-      panel.classList.remove("active");
-    });
+  button.onclick = () => {
+
+    document
+      .querySelectorAll(".tab")
+      .forEach(item =>
+        item.classList.remove("active")
+      );
+
+    document
+      .querySelectorAll(".panel")
+      .forEach(panel =>
+        panel.classList.remove("active")
+      );
 
     button.classList.add("active");
 
-    const panelId = button.dataset.panel;
-    $(panelId).classList.add("active");
-  });
+    const panel =
+      $(button.dataset.panel);
+
+    if (panel) {
+      panel.classList.add("active");
+    }
+  };
+
 });
 
-/* --------------------------------------------------
-   LOAD ALL DATA
--------------------------------------------------- */
 
-async function loadEverything() {
-  await Promise.all([
-    loadConfig(),
-    loadResults(),
-    loadAttempts(),
-    loadSecurity()
-  ]);
+/* =========================================================
+   ACTIVE EXAMS
+========================================================= */
 
-  renderResults();
-  renderAttempts();
-  renderSecurity();
-  updateStats();
+function updateActiveExamStyle() {
+
+  document
+    .querySelectorAll(".exam-pill")
+    .forEach(pill => {
+
+      const checkbox =
+        pill.querySelector(".active-exam");
+
+      if (!checkbox) return;
+
+      pill.classList.toggle(
+        "active",
+        checkbox.checked
+      );
+    });
+
+  updateSummary();
 }
 
-/* --------------------------------------------------
-   CONFIGURATION
--------------------------------------------------- */
+
+document
+  .querySelectorAll(".active-exam")
+  .forEach(input => {
+
+    input.onchange =
+      updateActiveExamStyle;
+
+  });
+
+
+/* =========================================================
+   SUBJECT MANAGEMENT
+========================================================= */
+
+function addSubject(data = {}) {
+
+  const wrapper =
+    document.createElement("div");
+
+  wrapper.className =
+    "subject-row";
+
+  wrapper.innerHTML = `
+    <div>
+      <label>Subject Name *</label>
+      <input
+        class="s-name"
+        value="${escapeHtml(
+          data.name || "All Questions"
+        )}"
+      >
+    </div>
+
+    <div>
+      <label>Questions *</label>
+      <input
+        class="s-count"
+        type="number"
+        min="1"
+        value="${Number(data.count) || 100}"
+      >
+    </div>
+
+    <div>
+      <label>Question Source *</label>
+      <input
+        class="s-source"
+        value="${escapeHtml(
+          data.source || "chapter.json"
+        )}"
+      >
+    </div>
+
+    <div>
+      <label>Question Order *</label>
+      <select class="s-order">
+        <option value="random">Random</option>
+        <option value="sequential">Sequential</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      class="btn danger remove-subject"
+    >
+      🗑
+    </button>
+  `;
+
+  const order =
+    wrapper.querySelector(".s-order");
+
+  order.value =
+    data.order === "sequential"
+      ? "sequential"
+      : "random";
+
+  wrapper
+    .querySelector(".remove-subject")
+    .onclick = () => {
+
+      wrapper.remove();
+
+      if (!$("subjectRows").children.length) {
+
+        addSubject({
+          name: "All Questions",
+          count: 100,
+          source: "chapter.json",
+          order: "random"
+        });
+
+      }
+
+      updateSummary();
+    };
+
+  wrapper
+    .querySelectorAll("input,select")
+    .forEach(input => {
+
+      input.addEventListener(
+        "input",
+        updateSummary
+      );
+
+      input.addEventListener(
+        "change",
+        updateSummary
+      );
+    });
+
+  $("subjectRows").appendChild(wrapper);
+
+  updateSummary();
+}
+
+
+function getSubjects() {
+
+  return [...document.querySelectorAll(
+    ".subject-row"
+  )]
+
+    .map(row => ({
+
+      name:
+        row
+          .querySelector(".s-name")
+          .value
+          .trim(),
+
+      count:
+        Number(
+          row
+            .querySelector(".s-count")
+            .value
+        ) || 0,
+
+      source:
+        row
+          .querySelector(".s-source")
+          .value
+          .trim(),
+
+      order:
+        row
+          .querySelector(".s-order")
+          .value
+
+    }))
+
+    .filter(subject =>
+      subject.name &&
+      subject.count > 0 &&
+      subject.source
+    );
+}
+
+
+$("addSubject").onclick = () => {
+
+  addSubject({
+    name: "New Subject",
+    count: 25,
+    source: "chapter.json",
+    order: "random"
+  });
+
+};
+
+
+/* =========================================================
+   SUMMARY
+========================================================= */
+
+function updateSummary() {
+
+  const exam =
+    $("examSelect")
+      ?.selectedOptions?.[0]
+      ?.textContent ||
+    "Exam";
+
+  const subjects =
+    getSubjects();
+
+  const total =
+    subjects.reduce(
+      (sum, subject) =>
+        sum + subject.count,
+      0
+    );
+
+  const active =
+    [...document.querySelectorAll(
+      ".active-exam:checked"
+    )]
+      .map(item =>
+        item.value
+          .replaceAll("_", " ")
+          .toUpperCase()
+      );
+
+  if (!$("examSummary")) return;
+
+  $("examSummary").innerHTML = `
+    <b>${escapeHtml(exam)}:</b>
+    ${subjects.length} section(s) •
+    ${total} student questions •
+    Timer:
+    ${number("durationMinutes", 90)}
+    min •
+    Penalty:
+    ${number("tabPenalty", 0)}
+    /violation.
+    <br>
+    <b>Active:</b>
+    ${
+      active.length
+        ? escapeHtml(active.join(", "))
+        : "None"
+    }
+  `;
+}
+
+
+[
+  "examSelect",
+  "durationMinutes",
+  "tabPenalty",
+  "negativeMarking",
+  "totalPool",
+  "studentLimit"
+].forEach(id => {
+
+  $(id)?.addEventListener(
+    "input",
+    updateSummary
+  );
+
+});
+
+
+/* =========================================================
+   LOAD CONFIG
+========================================================= */
 
 async function loadConfig() {
+
   try {
-    const configRef = doc(db, "adminConfig", "main");
-    const snapshot = await getDoc(configRef);
 
-    if (!snapshot.exists()) return;
+    const snap =
+      await getDoc(
+        doc(
+          db,
+          "exam_config",
+          "current_test"
+        )
+      );
 
-    const data = snapshot.data();
+    config =
+      snap.exists()
+        ? snap.data()
+        : {};
 
-    $("instituteName").value =
-      safeText(data.instituteName, "TestHub");
-
-    $("instituteLogo").value =
-      safeText(data.instituteLogo);
-
-    $("examTitle").value =
-      safeText(data.examTitle, "RRB Group D Examination");
+    $("examSelect").value =
+      config.examId ||
+      "rrb_group_d";
 
     $("durationMinutes").value =
-      safeNumber(data.durationMinutes, 90);
-
-    $("negativeMarking").value =
-      safeNumber(data.negativeMarking, 0);
+      config.durationMinutes ?? 90;
 
     $("tabPenalty").value =
-      safeNumber(data.tabPenalty, 0);
+      config.tabPenalty ?? 0;
+
+    $("negativeMarking").value =
+      config.negativeMarking ?? 0;
 
     $("maxTabSwitches").value =
-      safeNumber(data.maxTabSwitches, 5);
+      config.maxTabSwitches ?? 5;
 
     $("centerCode").value =
-      safeText(data.centerCode);
+      config.centerCode ?? "";
+
+    $("instituteName").value =
+      config.instituteName ?? "";
 
     $("instituteLocation").value =
-      safeText(data.instituteLocation);
+      config.instituteLocation ?? "";
 
     $("fullAddress").value =
-      safeText(data.fullAddress);
+      config.fullAddress ?? "";
 
-    $("totalPool").value =
-      safeNumber(data.totalPool, 100);
-
-    $("studentLimit").value =
-      safeNumber(data.studentLimit, 100);
-
-    $("subjectName").value =
-      safeText(data.subjectName, "All Questions");
-
-    $("questionSource").value =
-      safeText(data.questionSource, "chapter.json");
-
-    $("questionOrder").value =
-      safeText(data.questionOrder, "random");
+    $("examTitle").value =
+      config.examTitle ?? "";
 
     $("windowStart").value =
-      safeText(data.windowStart);
+      localDate(config.windowStart);
 
     $("windowEnd").value =
-      safeText(data.windowEnd);
+      localDate(config.windowEnd);
 
     $("examActive").value =
-      String(data.examActive !== false);
+      String(config.examActive !== false);
 
-    $("replaceQuestionOnSwitch").checked =
-      Boolean(data.replaceQuestionOnSwitch);
-
-    if (data.uploadMethod) {
-      const radio = document.querySelector(
-        `input[name="uploadMethod"][value="${data.uploadMethod}"]`
+    $("replaceQuestionOnSwitch").value =
+      String(
+        config.replaceQuestionOnSwitch !== false
       );
 
-      if (radio) radio.checked = true;
+    logoData =
+      config.instituteLogo || "";
+
+    if (logoData) {
+
+      $("logoPreview").src =
+        logoData;
+
+      $("logoPreview")
+        .classList
+        .remove("hidden");
+
+      $("instituteLogo").value =
+        logoData.startsWith("data:")
+          ? ""
+          : logoData;
     }
 
-    if (Array.isArray(data.activeExams)) {
-      document.querySelectorAll(".active-exam").forEach(box => {
-        box.checked = data.activeExams.includes(box.value);
+    const active =
+      config.activeExams ||
+      ["rrb_group_d"];
+
+    document
+      .querySelectorAll(".active-exam")
+      .forEach(box => {
+
+        box.checked =
+          active.includes(box.value);
+
       });
-    }
 
-    if (data.instituteLogo) {
-      currentLogoData = data.instituteLogo;
-      showLogo(data.instituteLogo);
-    }
+    updateActiveExamStyle();
+
+    document
+      .querySelectorAll(
+        'input[name="uploadMethod"]'
+      )
+      .forEach(radio => {
+
+        radio.checked =
+          radio.value ===
+          (
+            config.uploadMethod ||
+            "live_form"
+          );
+
+      });
+
+    $("subjectRows").innerHTML = "";
+
+    const subjects =
+      Array.isArray(config.subjects) &&
+      config.subjects.length
+        ? config.subjects
+        : [
+            {
+              name:
+                "All Questions",
+              count:
+                config.studentLimit ||
+                100,
+              source:
+                config.questionSource ||
+                "chapter.json",
+              order:
+                config.questionOrder ||
+                "random"
+            }
+          ];
+
+    subjects.forEach(addSubject);
+
+    updateSummary();
+
+    $("adminTitle").textContent =
+      `${
+        config.instituteName?.trim() ||
+        "TestHub"
+      } Admin`;
+
   } catch (error) {
-    console.error("Config loading error:", error);
+
+    console.error(error);
+
+    message(
+      "configMsg",
+      "Config load failed: " +
+      error.message,
+      true
+    );
   }
 }
 
-function collectConfig() {
-  const activeExams = Array.from(
-    document.querySelectorAll(".active-exam:checked")
-  ).map(box => box.value);
 
-  const uploadMethod =
-    document.querySelector(
-      'input[name="uploadMethod"]:checked'
-    )?.value || "live_form";
+/* =========================================================
+   SAVE EXAM SETTINGS
+========================================================= */
 
-  return {
-    instituteName: $("instituteName").value.trim(),
-    instituteLogo: currentLogoData || $("instituteLogo").value.trim(),
-    examTitle: $("examTitle").value.trim(),
-    examSelect: $("examSelect").value,
-    activeExams,
+$("saveExamSettings").onclick =
+  async () => {
 
-    durationMinutes: safeNumber($("durationMinutes").value, 90),
-    negativeMarking: safeNumber($("negativeMarking").value, 0),
-    tabPenalty: safeNumber($("tabPenalty").value, 0),
-    maxTabSwitches: safeNumber($("maxTabSwitches").value, 5),
+    const subjects =
+      getSubjects();
 
-    totalPool: safeNumber($("totalPool").value, 100),
-    studentLimit: safeNumber($("studentLimit").value, 100),
-    subjectName: $("subjectName").value.trim(),
-    questionSource: $("questionSource").value.trim(),
-    questionOrder: $("questionOrder").value,
+    const activeExams =
+      [...document.querySelectorAll(
+        ".active-exam:checked"
+      )].map(input =>
+        input.value
+      );
 
-    centerCode: $("centerCode").value.trim(),
-    instituteLocation: $("instituteLocation").value.trim(),
-    fullAddress: $("fullAddress").value.trim(),
+    if (!activeExams.length) {
 
-    windowStart: $("windowStart").value,
-    windowEnd: $("windowEnd").value,
-    examActive: $("examActive").value === "true",
+      return message(
+        "subjectMsg",
+        "Select at least one active exam.",
+        true
+      );
+    }
 
-    uploadMethod,
-    replaceQuestionOnSwitch: $("replaceQuestionOnSwitch").checked,
+    if (!subjects.length) {
 
-    updatedAt: serverTimestamp(),
-    updatedBy: currentUser?.email || ""
+      return message(
+        "subjectMsg",
+        "Add at least one valid subject.",
+        true
+      );
+    }
+
+    const start =
+      $("windowStart").value;
+
+    const end =
+      $("windowEnd").value;
+
+    if (
+      start &&
+      end &&
+      new Date(start) >=
+        new Date(end)
+    ) {
+
+      return message(
+        "subjectMsg",
+        "Start time must be earlier than close time.",
+        true
+      );
+    }
+
+    const total =
+      subjects.reduce(
+        (sum, subject) =>
+          sum + subject.count,
+        0
+      );
+
+    const payload = {
+
+      examId:
+        $("examSelect").value,
+
+      activeExams,
+
+      subjects,
+
+      totalPool:
+        total,
+
+      studentLimit:
+        total,
+
+      durationMinutes:
+        number("durationMinutes", 90),
+
+      negativeMarking:
+        number("negativeMarking", 0),
+
+      tabPenalty:
+        number("tabPenalty", 0),
+
+      maxTabSwitches:
+        number("maxTabSwitches", 5),
+
+      autoSubmitAfter:
+        number("maxTabSwitches", 5),
+
+      replaceQuestionOnSwitch:
+        $("replaceQuestionOnSwitch").value
+        !== "false",
+
+      examActive:
+        $("examActive").value
+        === "true",
+
+      examTitle:
+        $("examTitle").value.trim() ||
+        $("examSelect")
+          .selectedOptions[0]
+          .textContent,
+
+      questionSource:
+        subjects[0]?.source ||
+        "chapter.json",
+
+      questionOrder:
+        subjects[0]?.order ||
+        "random",
+
+      instituteName:
+        $("instituteName")
+          .value
+          .trim() ||
+        "TestHub",
+
+      instituteLogo:
+        logoData,
+
+      centerCode:
+        $("centerCode")
+          .value
+          .trim(),
+
+      instituteLocation:
+        $("instituteLocation")
+          .value
+          .trim(),
+
+      fullAddress:
+        $("fullAddress")
+          .value
+          .trim(),
+
+      windowStart:
+        start
+          ? new Date(start).getTime()
+          : 0,
+
+      windowEnd:
+        end
+          ? new Date(end).getTime()
+          : 0,
+
+      uploadMethod:
+        document.querySelector(
+          'input[name="uploadMethod"]:checked'
+        )?.value ||
+        "live_form",
+
+      updatedAt:
+        serverTimestamp(),
+
+      updatedBy:
+        currentUser?.uid ||
+        ""
+
+    };
+
+    try {
+
+      await setDoc(
+        doc(
+          db,
+          "exam_config",
+          "current_test"
+        ),
+        payload,
+        {
+          merge: true
+        }
+      );
+
+      await setDoc(
+        doc(
+          db,
+          "exam_config",
+          payload.examId
+        ),
+        payload,
+        {
+          merge: true
+        }
+      );
+
+      message(
+        "subjectMsg",
+        "Exam and subject settings saved successfully."
+      );
+
+      $("adminTitle").textContent =
+        `${payload.instituteName} Admin`;
+
+      updateSummary();
+
+    } catch (error) {
+
+      message(
+        "subjectMsg",
+        "Save failed: " +
+        error.message,
+        true
+      );
+    }
   };
-}
 
-$("saveConfig").addEventListener("click", async () => {
-  const button = $("saveConfig");
-  button.disabled = true;
-  button.textContent = "Saving...";
 
-  try {
-    const config = collectConfig();
+/* =========================================================
+   CENTER CODE
+========================================================= */
 
-    await setDoc(
-      doc(db, "adminConfig", "main"),
-      config,
-      { merge: true }
-    );
+$("activateCenter").onclick =
+  async () => {
 
-    await setDoc(
-      doc(db, "examConfigs", config.examSelect),
-      {
-        ...config,
-        examId: config.examSelect
-      },
-      { merge: true }
-    );
+    const code =
+      $("centerCode")
+        .value
+        .trim();
 
-    showMessage(
-      $("configMsg"),
-      "Exam and subject settings saved successfully.",
-      "success"
-    );
-  } catch (error) {
-    showMessage(
-      $("configMsg"),
-      `Unable to save settings: ${error.message}`,
-      "error"
-    );
-  } finally {
-    button.disabled = false;
-    button.textContent = "💾 Save Exam & Subject Settings";
-  }
-});
+    if (!code) {
 
-$("activateCenter").addEventListener("click", async () => {
-  const centerCode = $("centerCode").value.trim();
+      return message(
+        "centerMsg",
+        "Enter a center code first.",
+        true
+      );
+    }
 
-  if (!centerCode) {
-    showMessage(
-      $("centerMsg"),
-      "Please enter a center code first.",
-      "error"
-    );
-    return;
-  }
+    try {
 
-  try {
-    await setDoc(
-      doc(db, "adminConfig", "main"),
-      {
-        centerCode,
-        instituteName: $("instituteName").value.trim(),
-        instituteLocation: $("instituteLocation").value.trim(),
-        fullAddress: $("fullAddress").value.trim(),
-        updatedAt: serverTimestamp()
-      },
-      { merge: true }
-    );
+      await setDoc(
+        doc(
+          db,
+          "exam_config",
+          "current_test"
+        ),
+        {
 
-    showMessage(
-      $("centerMsg"),
-      `Center code ${centerCode} activated successfully.`,
-      "success"
-    );
-  } catch (error) {
-    showMessage(
-      $("centerMsg"),
-      `Center activation failed: ${error.message}`,
-      "error"
-    );
-  }
-});
+          centerCode:
+            code,
 
-$("saveAvailability").addEventListener("click", async () => {
-  try {
-    const uploadMethod =
-      document.querySelector(
-        'input[name="uploadMethod"]:checked'
-      )?.value || "live_form";
+          instituteName:
+            $("instituteName")
+              .value
+              .trim() ||
+            "TestHub",
 
-    await setDoc(
-      doc(db, "adminConfig", "main"),
-      {
-        windowStart: $("windowStart").value,
-        windowEnd: $("windowEnd").value,
-        examActive: $("examActive").value === "true",
-        uploadMethod,
-        updatedAt: serverTimestamp()
-      },
-      { merge: true }
-    );
+          instituteLocation:
+            $("instituteLocation")
+              .value
+              .trim(),
 
-    showMessage(
-      $("availabilityMsg"),
-      "Availability and upload settings saved successfully.",
-      "success"
-    );
-  } catch (error) {
-    showMessage(
-      $("availabilityMsg"),
-      `Unable to save availability: ${error.message}`,
-      "error"
-    );
-  }
-});
+          fullAddress:
+            $("fullAddress")
+              .value
+              .trim(),
 
-$("addSubject").addEventListener("click", () => {
-  alert(
-    "Subject-wise multiple rows ka complete dynamic version next update me add kiya ja sakta hai. Abhi current subject settings save ho rahi hain."
-  );
-});
+          updatedAt:
+            serverTimestamp()
 
-/* --------------------------------------------------
+        },
+        {
+          merge: true
+        }
+      );
+
+      message(
+        "centerMsg",
+        `Active center code: ${code}`
+      );
+
+    } catch (error) {
+
+      message(
+        "centerMsg",
+        "Center activation failed: " +
+        error.message,
+        true
+      );
+    }
+  };
+
+
+/* =========================================================
+   AVAILABILITY
+========================================================= */
+
+$("saveAvailability").onclick =
+  async () => {
+
+    const start =
+      $("windowStart").value;
+
+    const end =
+      $("windowEnd").value;
+
+    if (
+      start &&
+      end &&
+      new Date(start) >=
+        new Date(end)
+    ) {
+
+      return message(
+        "availabilityMsg",
+        "Start time must be earlier than close time.",
+        true
+      );
+    }
+
+    try {
+
+      await setDoc(
+        doc(
+          db,
+          "exam_config",
+          "current_test"
+        ),
+        {
+
+          windowStart:
+            start
+              ? new Date(start).getTime()
+              : 0,
+
+          windowEnd:
+            end
+              ? new Date(end).getTime()
+              : 0,
+
+          maxTabSwitches:
+            number("maxTabSwitches", 5),
+
+          autoSubmitAfter:
+            number("maxTabSwitches", 5),
+
+          examActive:
+            $("examActive").value
+            === "true",
+
+          uploadMethod:
+            document.querySelector(
+              'input[name="uploadMethod"]:checked'
+            )?.value ||
+            "live_form",
+
+          updatedAt:
+            serverTimestamp()
+
+        },
+        {
+          merge: true
+        }
+      );
+
+      message(
+        "availabilityMsg",
+        "Availability and upload settings saved successfully."
+      );
+
+    } catch (error) {
+
+      message(
+        "availabilityMsg",
+        "Save failed: " +
+        error.message,
+        true
+      );
+    }
+  };
+
+
+/* =========================================================
    LOGO
--------------------------------------------------- */
+========================================================= */
 
-$("instituteLogo").addEventListener("input", event => {
-  const url = event.target.value.trim();
+$("logoFile").onchange =
+  event => {
 
-  if (url) {
-    currentLogoData = url;
-    showLogo(url);
-  }
-});
+    const file =
+      event.target.files[0];
 
-$("logoFile").addEventListener("change", event => {
-  const file = event.target.files[0];
+    if (!file) return;
 
-  if (!file) return;
+    if (file.size > 500000) {
 
-  if (file.size > 500 * 1024) {
-    alert("Logo size 500 KB se kam hona chahiye.");
-    event.target.value = "";
-    return;
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    currentLogoData = reader.result;
-    showLogo(reader.result);
-  };
-
-  reader.readAsDataURL(file);
-});
-
-$("clearLogo").addEventListener("click", () => {
-  currentLogoData = "";
-  $("instituteLogo").value = "";
-  $("logoFile").value = "";
-  $("logoPreview").src = "";
-  $("logoPreview").classList.add("hidden");
-});
-
-function showLogo(url) {
-  if (!url) return;
-
-  $("logoPreview").src = url;
-  $("logoPreview").classList.remove("hidden");
-}
-
-/* --------------------------------------------------
-   RESULTS
--------------------------------------------------- */
-
-async function loadResults() {
-  allResults = [];
-
-  const possibleCollections = [
-    "results",
-    "submissions"
-  ];
-
-  for (const collectionName of possibleCollections) {
-    try {
-      const snapshot = await getDocs(
-        collection(db, collectionName)
+      alert(
+        "Logo must be smaller than 500 KB."
       );
 
-      snapshot.forEach(item => {
-        allResults.push({
-          id: item.id,
-          collectionName,
-          ...item.data()
-        });
-      });
+      event.target.value = "";
 
-      if (allResults.length > 0) break;
-    } catch (error) {
-      console.warn(
-        `Unable to load ${collectionName}:`,
-        error.message
-      );
+      return;
     }
-  }
-}
 
-function normalizeResult(item) {
-  return {
-    id: item.id,
-    collectionName: item.collectionName,
+    const reader =
+      new FileReader();
 
-    name: safeText(
-      item.name || item.studentName || item.candidateName,
-      "Unknown"
-    ),
+    reader.onload = () => {
 
-    email: safeText(
-      item.email || item.studentEmail || item.candidateEmail
-    ),
+      logoData =
+        reader.result;
 
-    exam: safeText(
-      item.exam || item.examTitle || item.examName,
-      "General Exam"
-    ),
+      $("logoPreview").src =
+        logoData;
 
-    center: safeText(
-      item.center || item.centerCode
-    ),
+      $("logoPreview")
+        .classList
+        .remove("hidden");
+    };
 
-    score: safeNumber(
-      item.score || item.finalScore || item.marks,
-      0
-    ),
-
-    correct: safeNumber(
-      item.correct || item.correctCount,
-      0
-    ),
-
-    wrong: safeNumber(
-      item.wrong || item.wrongCount,
-      0
-    ),
-
-    attempted: safeNumber(
-      item.attempted || item.attemptedCount,
-      0
-    ),
-
-    rating: safeNumber(
-      item.rating || item.stars,
-      0
-    ),
-
-    violations: safeNumber(
-      item.violations || item.securityCount || item.tabSwitches,
-      0
-    ),
-
-    submittedAt:
-      item.submittedAt ||
-      item.completedAt ||
-      item.createdAt ||
-      item.timestamp,
-
-    raw: item
+    reader.readAsDataURL(file);
   };
-}
 
-function renderResults() {
-  const tbody = $("resultRows");
-  tbody.innerHTML = "";
 
-  let rows = allResults.map(normalizeResult);
+$("instituteLogo").oninput =
+  event => {
 
-  const search = $("resultSearch").value.trim().toLowerCase();
-  const sort = $("resultSort").value;
+    const value =
+      event.target.value.trim();
 
-  if (search) {
-    rows = rows.filter(row =>
-      row.name.toLowerCase().includes(search) ||
-      row.email.toLowerCase().includes(search) ||
-      row.exam.toLowerCase().includes(search)
-    );
-  }
+    logoData =
+      value;
 
-  if (sort === "score") {
-    rows.sort((a, b) => b.score - a.score);
-  }
+    if (value) {
 
-  if (sort === "rating") {
-    rows.sort((a, b) => b.rating - a.rating);
-  }
+      $("logoPreview").src =
+        value;
 
-  if (sort === "newest") {
-    rows.sort((a, b) => {
-      return getTime(b.submittedAt) - getTime(a.submittedAt);
-    });
-  }
+      $("logoPreview")
+        .classList
+        .remove("hidden");
 
-  if (rows.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="11" class="empty">
-          No result data available.
-        </td>
-      </tr>
-    `;
-    return;
-  }
+    }
+  };
 
-  rows.forEach((row, index) => {
-    const tr = document.createElement("tr");
 
-    tr.innerHTML = `
-      <td><b>${index + 1}</b></td>
+$("clearLogo").onclick =
+  () => {
 
-      <td>
-        <b>${escapeHtml(row.name)}</b><br>
-        <span class="muted">${escapeHtml(row.email)}</span>
-      </td>
+    logoData = "";
 
-      <td>${escapeHtml(row.exam)}</td>
+    $("instituteLogo").value = "";
 
-      <td>${escapeHtml(row.center || "-")}</td>
+    $("logoFile").value = "";
 
-      <td>
-        <span class="badge blue">
-          ${row.score}
-        </span>
-      </td>
+    $("logoPreview")
+      .classList
+      .add("hidden");
 
-      <td>${row.correct}</td>
-      <td>${row.wrong}</td>
-      <td>${row.attempted}</td>
+  };
 
-      <td>${formatDate(row.submittedAt)}</td>
 
-      <td>
-        ${row.rating > 0 ? `${row.rating}/5` : "-"}
-      </td>
+/* =========================================================
+   REALTIME DATA
+========================================================= */
 
-      <td>
-        <button class="btn outline view-result"
-                data-id="${row.id}">
-          View
-        </button>
+function subscribe() {
 
-        <button class="btn danger delete-result"
-                data-id="${row.id}"
-                data-collection="${row.collectionName}">
-          Delete
-        </button>
-      </td>
-    `;
+  unsubs.forEach(unsubscribe => {
 
-    tbody.appendChild(tr);
+    try {
+      unsubscribe();
+    } catch {}
+
   });
 
-  document.querySelectorAll(".view-result").forEach(button => {
-    button.addEventListener("click", () => {
-      const row = rows.find(item => item.id === button.dataset.id);
-      if (row) openResultDetails(row);
-    });
-  });
+  unsubs = [];
 
-  document.querySelectorAll(".delete-result").forEach(button => {
-    button.addEventListener("click", async () => {
-      const confirmed = confirm(
-        "Kya aap is result ko permanently delete karna chahte hain?"
-      );
 
-      if (!confirmed) return;
+  unsubs.push(
+    onSnapshot(
+      collection(db, "attempts"),
+      snapshot => {
 
-      try {
-        await deleteDoc(
-          doc(
-            db,
-            button.dataset.collection,
-            button.dataset.id
-          )
-        );
+        attempts =
+          snapshot.docs.map(
+            item => ({
+              id: item.id,
+              ...item.data()
+            })
+          );
 
-        await loadEverything();
-      } catch (error) {
-        alert(`Delete failed: ${error.message}`);
+        renderAttempts();
+        updateStats();
       }
-    });
-  });
+    )
+  );
+
+
+  unsubs.push(
+    onSnapshot(
+      collection(db, "results"),
+      snapshot => {
+
+        results =
+          snapshot.docs.map(
+            item => ({
+              id: item.id,
+              ...item.data()
+            })
+          );
+
+        renderResults();
+        renderSecurity();
+        updateStats();
+      }
+    )
+  );
+
 }
 
-function getTime(value) {
-  if (!value) return 0;
 
-  try {
-    if (typeof value.toDate === "function") {
-      return value.toDate().getTime();
-    }
-
-    if (value.seconds) {
-      return value.seconds * 1000;
-    }
-
-    return new Date(value).getTime() || 0;
-  } catch {
-    return 0;
-  }
-}
-
-/* --------------------------------------------------
-   LIVE ATTEMPTS
--------------------------------------------------- */
-
-async function loadAttempts() {
-  allAttempts = [];
-
-  try {
-    const snapshot = await getDocs(
-      collection(db, "attempts")
-    );
-
-    snapshot.forEach(item => {
-      allAttempts.push({
-        id: item.id,
-        ...item.data()
-      });
-    });
-  } catch (error) {
-    console.warn("Attempts loading error:", error.message);
-  }
-}
-
-function renderAttempts() {
-  const tbody = $("attemptRows");
-  tbody.innerHTML = "";
-
-  const activeRows = allAttempts.filter(item => {
-    const status = safeText(item.status, "active").toLowerCase();
-    return !["submitted", "completed", "finished"].includes(status);
-  });
-
-  if (activeRows.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8" class="empty">
-          No active attempts found.
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  activeRows.forEach(item => {
-    const name = item.name || item.studentName || "Unknown";
-    const email = item.email || item.studentEmail || "-";
-    const exam = item.exam || item.examTitle || "-";
-    const status = item.status || "Active";
-    const question = item.currentQuestion || item.questionNumber || "-";
-    const violations = item.violations || item.tabSwitches || 0;
-    const penalty = item.penalty || item.penaltyCount || 0;
-
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${escapeHtml(name)}</td>
-      <td>${escapeHtml(email)}</td>
-      <td>${escapeHtml(exam)}</td>
-      <td><span class="badge good">${escapeHtml(status)}</span></td>
-      <td>${escapeHtml(question)}</td>
-      <td>${violations}</td>
-      <td>${penalty}</td>
-      <td>${formatDate(item.updatedAt || item.lastUpdated)}</td>
-    `;
-
-    tbody.appendChild(tr);
-  });
-}
-
-/* --------------------------------------------------
-   SECURITY ANALYTICS
--------------------------------------------------- */
-
-async function loadSecurity() {
-  allSecurity = [];
-
-  const possibleCollections = [
-    "securityLogs",
-    "security",
-    "violations"
-  ];
-
-  for (const collectionName of possibleCollections) {
-    try {
-      const snapshot = await getDocs(
-        collection(db, collectionName)
-      );
-
-      snapshot.forEach(item => {
-        allSecurity.push({
-          id: item.id,
-          collectionName,
-          ...item.data()
-        });
-      });
-
-      if (allSecurity.length > 0) break;
-    } catch (error) {
-      console.warn(
-        `Unable to load ${collectionName}:`,
-        error.message
-      );
-    }
-  }
-}
-
-function renderSecurity() {
-  const tbody = $("securityRows");
-  tbody.innerHTML = "";
-
-  if (allSecurity.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="7" class="empty">
-          No security analytics data available.
-        </td>
-      </tr>
-    `;
-
-    $("violations").textContent = "0";
-    $("tabTotal").textContent = "0";
-    $("copyTotal").textContent = "0";
-    $("penaltyTotal").textContent = "0";
-
-    return;
-  }
-
-  let totalTabs = 0;
-  let totalCopy = 0;
-  let totalPenalty = 0;
-
-  allSecurity.forEach(item => {
-    const name = item.name || item.studentName || "Unknown";
-    const email = item.email || item.studentEmail || "-";
-
-    const tabs = safeNumber(
-      item.tabSwitches || item.tabs || item.tabEvents,
-      0
-    );
-
-    const copy = safeNumber(
-      item.copyEvents || item.copy || item.otherEvents,
-      0
-    );
-
-    const total = safeNumber(
-      item.totalEvents || item.total || tabs + copy,
-      tabs + copy
-    );
-
-    const penalty = safeNumber(
-      item.penalty || item.penaltyCount,
-      0
-    );
-
-    const autoSubmitted =
-      item.autoSubmitted === true ||
-      item.status === "auto-submitted";
-
-    totalTabs += tabs;
-    totalCopy += copy;
-    totalPenalty += penalty;
-
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${escapeHtml(name)}</td>
-      <td>${escapeHtml(email)}</td>
-      <td>${tabs}</td>
-      <td>${copy}</td>
-      <td>${total}</td>
-      <td>${penalty}</td>
-      <td>
-        <span class="badge ${autoSubmitted ? "bad" : "good"}">
-          ${autoSubmitted ? "Yes" : "No"}
-        </span>
-      </td>
-    `;
-
-    tbody.appendChild(tr);
-  });
-
-  $("violations").textContent = allSecurity.length;
-  $("tabTotal").textContent = totalTabs;
-  $("copyTotal").textContent = totalCopy;
-  $("penaltyTotal").textContent = totalPenalty;
-}
-
-/* --------------------------------------------------
-   STATISTICS
--------------------------------------------------- */
+/* =========================================================
+   STATS
+========================================================= */
 
 function updateStats() {
-  const rows = allResults.map(normalizeResult);
 
-  $("submissions").textContent = rows.length;
+  $("submissions").textContent =
+    results.length;
 
-  const activeRows = allAttempts.filter(item => {
-    const status = safeText(item.status, "active").toLowerCase();
-    return !["submitted", "completed", "finished"].includes(status);
-  });
+  $("active").textContent =
+    attempts.filter(
+      attempt =>
+        attempt.status ===
+        "in_progress"
+    ).length;
 
-  $("active").textContent = activeRows.length;
+  if (!results.length) {
 
-  if (rows.length === 0) {
-    $("average").textContent = "0";
-    $("ratingAvg").textContent = "0/5";
+    $("average").textContent =
+      "0";
+
+    $("ratingAvg").textContent =
+      "0/5";
+
     return;
   }
 
-  const totalScore = rows.reduce(
-    (sum, item) => sum + item.score,
-    0
-  );
-
-  const ratedRows = rows.filter(item => item.rating > 0);
-
-  const totalRating = ratedRows.reduce(
-    (sum, item) => sum + item.rating,
-    0
-  );
+  const average =
+    results.reduce(
+      (sum, result) =>
+        sum +
+        (Number(result.score) || 0),
+      0
+    ) /
+    results.length;
 
   $("average").textContent =
-    (totalScore / rows.length).toFixed(2);
+    average.toFixed(2);
 
-  $("ratingAvg").textContent =
-    ratedRows.length > 0
-      ? `${(totalRating / ratedRows.length).toFixed(2)}/5`
-      : "0/5";
+  const rated =
+    results.filter(
+      result =>
+        Number(result.rating) > 0
+    );
+
+  if (!rated.length) {
+
+    $("ratingAvg").textContent =
+      "0/5";
+
+  } else {
+
+    const avgRating =
+      rated.reduce(
+        (sum, result) =>
+          sum +
+          Number(result.rating),
+        0
+      ) /
+      rated.length;
+
+    $("ratingAvg").textContent =
+      `${avgRating.toFixed(1)}/5`;
+  }
+
+  $("violations").textContent =
+    results.filter(
+      result =>
+        Number(result.violationCount) > 0
+    ).length;
 }
 
-/* --------------------------------------------------
-   RESULT DETAILS MODAL
--------------------------------------------------- */
 
-function openResultDetails(row) {
-  const raw = row.raw || {};
+/* =========================================================
+   LIVE ATTEMPTS
+========================================================= */
+
+function renderAttempts() {
+
+  const rows =
+    [...attempts]
+      .sort(
+        (a, b) =>
+          millis(b.updatedAt) -
+          millis(a.updatedAt)
+      );
+
+  $("attemptRows").innerHTML =
+    rows.map(attempt => `
+
+      <tr>
+
+        <td>
+          ${escapeHtml(
+            attempt.name || "-"
+          )}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            attempt.email || "-"
+          )}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            attempt.exam ||
+            attempt.examTitle ||
+            config.examTitle ||
+            "-"
+          )}
+        </td>
+
+        <td>
+          <span class="badge good">
+            ${escapeHtml(
+              attempt.status ||
+              "active"
+            )}
+          </span>
+        </td>
+
+        <td>
+          ${
+            Number(
+              attempt.currentIndex
+            || 0
+            ) + 1
+          }
+        </td>
+
+        <td>
+          ${
+            Number(
+              attempt.violationCount
+            ) || 0
+          }
+        </td>
+
+        <td>
+          ${
+            Number(
+              attempt.penaltiesApplied
+            ) || 0
+          }
+        </td>
+
+        <td>
+          ${formatDate(
+            attempt.updatedAt
+          )}
+        </td>
+
+      </tr>
+
+    `).join("") ||
+
+    `
+      <tr>
+        <td
+          colspan="8"
+          class="empty"
+        >
+          No live attempts.
+        </td>
+      </tr>
+    `;
+}
+
+
+/* =========================================================
+   RESULTS
+========================================================= */
+
+function filteredResults() {
+
+  const query =
+    $("resultSearch")
+      .value
+      .trim()
+      .toLowerCase();
+
+  const sort =
+    $("resultSort").value;
+
+  let rows =
+    results.filter(result => {
+
+      const searchable =
+        `
+          ${result.name || ""}
+          ${result.email || ""}
+          ${result.exam || ""}
+          ${result.examTitle || ""}
+        `.toLowerCase();
+
+      return searchable.includes(
+        query
+      );
+    });
+
+
+  if (sort === "newest") {
+
+    rows.sort(
+      (a, b) =>
+        millis(b.submittedAt) -
+        millis(a.submittedAt)
+    );
+
+  } else if (sort === "rating") {
+
+    rows.sort(
+      (a, b) =>
+        (Number(b.rating) || 0) -
+        (Number(a.rating) || 0)
+    );
+
+  } else {
+
+    rows.sort(
+      (a, b) =>
+        (Number(b.score) || 0) -
+        (Number(a.score) || 0)
+    );
+  }
+
+  return rows;
+}
+
+
+function renderResults() {
+
+  const rows =
+    filteredResults();
+
+  $("resultRows").innerHTML =
+    rows.map((result, index) => `
+
+      <tr>
+
+        <td>
+          <b>#${index + 1}</b>
+        </td>
+
+        <td>
+          <b>
+            ${escapeHtml(
+              result.name
+            )}
+          </b>
+
+          <br>
+
+          <span class="muted">
+            ${escapeHtml(
+              result.email
+            )}
+          </span>
+        </td>
+
+        <td>
+          ${escapeHtml(
+            result.exam ||
+            result.examTitle ||
+            "-"
+          )}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            result.center ||
+            result.centerCode ||
+            "-"
+          )}
+        </td>
+
+        <td>
+
+          <span class="badge blue">
+            ${
+              Number(result.score) || 0
+            }/
+            ${
+              Number(result.total) || 0
+            }
+          </span>
+
+        </td>
+
+        <td>
+          ${
+            Number(result.correct) || 0
+          }
+        </td>
+
+        <td>
+          ${
+            Number(result.wrong) || 0
+          }
+        </td>
+
+        <td>
+          ${
+            (
+              Number(result.correct) ||
+              0
+            ) +
+            (
+              Number(result.wrong) ||
+              0
+            )
+          }
+        </td>
+
+        <td>
+          ${formatDate(
+            result.submittedAt
+          )}
+        </td>
+
+        <td>
+          ${
+            result.rating
+              ? escapeHtml(
+                  result.rating
+                ) + "/5"
+              : "-"
+          }
+        </td>
+
+        <td>
+
+          <button
+            class="btn light view-result"
+            data-id="${result.id}"
+          >
+            View
+          </button>
+
+          <button
+            class="btn danger delete-result"
+            data-id="${result.id}"
+          >
+            Delete
+          </button>
+
+        </td>
+
+      </tr>
+
+    `).join("") ||
+
+    `
+      <tr>
+        <td
+          colspan="11"
+          class="empty"
+        >
+          No results found.
+        </td>
+      </tr>
+    `;
+
+
+  document
+    .querySelectorAll(".view-result")
+    .forEach(button => {
+
+      button.onclick =
+        () =>
+          showDetails(
+            button.dataset.id
+          );
+
+    });
+
+
+  document
+    .querySelectorAll(".delete-result")
+    .forEach(button => {
+
+      button.onclick =
+        async () => {
+
+          if (
+            !confirm(
+              "Delete this result and attempt?"
+            )
+          ) {
+            return;
+          }
+
+          try {
+
+            await deleteDoc(
+              doc(
+                db,
+                "results",
+                button.dataset.id
+              )
+            );
+
+            await deleteDoc(
+              doc(
+                db,
+                "attempts",
+                button.dataset.id
+              )
+            ).catch(() => {});
+
+          } catch (error) {
+
+            alert(
+              error.message
+            );
+          }
+
+        };
+
+    });
+}
+
+
+$("resultSearch").oninput =
+  renderResults;
+
+$("resultSort").onchange =
+  renderResults;
+
+
+/* =========================================================
+   RESULT DETAILS
+========================================================= */
+
+function showDetails(id) {
+
+  const result =
+    results.find(
+      item =>
+        item.id === id
+    );
+
+  if (!result) return;
 
   $("detailContent").innerHTML = `
-    <div class="grid-2">
+
+    <div class="grid2">
+
       <div>
         <b>Student Name</b>
-        <p>${escapeHtml(row.name)}</p>
+        <p>
+          ${escapeHtml(
+            result.name
+          )}
+        </p>
       </div>
 
       <div>
         <b>Email</b>
-        <p>${escapeHtml(row.email)}</p>
+        <p>
+          ${escapeHtml(
+            result.email
+          )}
+        </p>
       </div>
 
       <div>
         <b>Exam</b>
-        <p>${escapeHtml(row.exam)}</p>
+        <p>
+          ${escapeHtml(
+            result.exam ||
+            result.examTitle ||
+            "-"
+          )}
+        </p>
       </div>
 
       <div>
         <b>Center</b>
-        <p>${escapeHtml(row.center || "-")}</p>
+        <p>
+          ${escapeHtml(
+            result.center ||
+            result.centerCode ||
+            "-"
+          )}
+        </p>
       </div>
 
       <div>
         <b>Score</b>
-        <p>${row.score}</p>
+        <p>
+          ${
+            Number(result.score) || 0
+          } /
+          ${
+            Number(result.total) || 0
+          }
+        </p>
       </div>
 
       <div>
-        <b>Correct Answers</b>
-        <p>${row.correct}</p>
+        <b>Correct / Wrong</b>
+        <p>
+          ${
+            Number(result.correct) || 0
+          }
+          /
+          ${
+            Number(result.wrong) || 0
+          }
+        </p>
       </div>
 
       <div>
-        <b>Wrong Answers</b>
-        <p>${row.wrong}</p>
+        <b>Unanswered</b>
+        <p>
+          ${
+            Number(
+              result.unanswered
+            ) || 0
+          }
+        </p>
       </div>
 
       <div>
-        <b>Attempted</b>
-        <p>${row.attempted}</p>
+        <b>Submitted</b>
+        <p>
+          ${formatDate(
+            result.submittedAt
+          )}
+        </p>
       </div>
 
-      <div>
-        <b>Violations</b>
-        <p>${row.violations}</p>
-      </div>
-
-      <div>
-        <b>Submitted At</b>
-        <p>${formatDate(row.submittedAt)}</p>
-      </div>
     </div>
 
     <hr>
 
-    <h3>Complete Stored Data</h3>
-    <pre style="white-space:pre-wrap;background:#f8fafc;padding:14px;border-radius:10px;overflow:auto">${escapeHtml(
-      JSON.stringify(raw, null, 2)
-    )}</pre>
+    <p>
+      <b>Rating:</b>
+      ${
+        result.rating
+          ? escapeHtml(
+              result.rating
+            ) + "/5"
+          : "-"
+      }
+    </p>
+
+    <p>
+      <b>Doubt:</b>
+      ${
+        escapeHtml(
+          result.doubt
+        ) || "-"
+      }
+    </p>
+
+    <p>
+      <b>Feedback:</b>
+      ${
+        escapeHtml(
+          result.feedback
+        ) || "-"
+      }
+    </p>
+
+    <h3>Security Events</h3>
+
+    ${
+      Array.isArray(
+        result.violations
+      ) &&
+      result.violations.length
+
+        ? result.violations
+            .map(
+              event => `
+                <p>
+                  ${escapeHtml(
+                    event.type
+                  )}
+                  —
+                  ${escapeHtml(
+                    event.message
+                  )}
+                  —
+                  ${formatDate(
+                    event.at
+                  )}
+                </p>
+              `
+            )
+            .join("")
+
+        : "<p>None</p>"
+    }
+
   `;
 
-  $("detailModal").classList.remove("hidden");
+  $("detailModal")
+    .classList
+    .remove("hidden");
 }
 
-$("closeModal").addEventListener("click", () => {
-  $("detailModal").classList.add("hidden");
-});
 
-$("detailModal").addEventListener("click", event => {
-  if (event.target === $("detailModal")) {
-    $("detailModal").classList.add("hidden");
-  }
-});
+$("closeModal").onclick =
+  () =>
+    $("detailModal")
+      .classList
+      .add("hidden");
 
-/* --------------------------------------------------
-   SEARCH / SORT / REFRESH
--------------------------------------------------- */
 
-$("resultSearch").addEventListener("input", renderResults);
-$("resultSort").addEventListener("change", renderResults);
+$("detailModal").onclick =
+  event => {
 
-$("refresh").addEventListener("click", async () => {
-  $("refresh").disabled = true;
-  $("refresh").textContent = "Refreshing...";
+    if (
+      event.target ===
+      $("detailModal")
+    ) {
 
-  try {
-    await loadEverything();
-  } finally {
-    $("refresh").disabled = false;
-    $("refresh").textContent = "Refresh";
-  }
-});
+      $("detailModal")
+        .classList
+        .add("hidden");
+    }
+  };
 
-/* --------------------------------------------------
-   CSV EXPORT
--------------------------------------------------- */
 
-$("csv").addEventListener("click", () => {
-  const rows = allResults.map(normalizeResult);
+/* =========================================================
+   SECURITY
+========================================================= */
 
-  if (rows.length === 0) {
-    alert("Export karne ke liye koi result available nahi hai.");
+function renderSecurity() {
+
+  let tabs = 0;
+  let copies = 0;
+  let penalty = 0;
+
+  results.forEach(result => {
+
+    tabs +=
+      Number(
+        result.tabSwitches
+      ) || 0;
+
+    copies +=
+      Number(
+        result.copiesAttempted
+      ) || 0;
+
+    penalty +=
+      Number(
+        result.penaltiesApplied
+      ) || 0;
+  });
+
+
+  $("tabTotal").textContent =
+    tabs;
+
+  $("copyTotal").textContent =
+    copies;
+
+  $("penaltyTotal").textContent =
+    penalty.toFixed(2);
+
+
+  const flagged =
+    results.filter(
+      result =>
+        Number(
+          result.violationCount
+        ) > 0
+    );
+
+
+  $("securityRows").innerHTML =
+    flagged
+      .map(result => `
+
+        <tr>
+
+          <td>
+            ${escapeHtml(
+              result.name
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              result.email
+            )}
+          </td>
+
+          <td>
+            ${
+              Number(
+                result.tabSwitches
+              ) || 0
+            }
+          </td>
+
+          <td>
+            ${
+              Number(
+                result.copiesAttempted
+              ) || 0
+            }
+          </td>
+
+          <td>
+            ${
+              Number(
+                result.violationCount
+              ) || 0
+            }
+          </td>
+
+          <td>
+            ${
+              Number(
+                result.penaltiesApplied
+              ) || 0
+            }
+          </td>
+
+          <td>
+            <span
+              class="badge ${
+                result.autoSubmitted
+                  ? "bad"
+                  : "good"
+              }"
+            >
+              ${
+                result.autoSubmitted
+                  ? "Yes"
+                  : "No"
+              }
+            </span>
+          </td>
+
+        </tr>
+
+      `)
+      .join("") ||
+
+    `
+      <tr>
+        <td
+          colspan="7"
+          class="empty"
+        >
+          No security flags.
+        </td>
+      </tr>
+    `;
+}
+
+
+/* =========================================================
+   CSV
+========================================================= */
+
+$("csv").onclick = () => {
+
+  const rows =
+    filteredResults();
+
+  if (!rows.length) {
+
+    alert(
+      "No results available."
+    );
+
     return;
   }
 
@@ -1146,89 +2005,109 @@ $("csv").addEventListener("click", () => {
     "Exam",
     "Center",
     "Score",
+    "Total",
     "Correct",
     "Wrong",
-    "Attempted",
+    "Unanswered",
     "Rating",
     "Violations",
+    "Penalty",
     "Submitted At"
   ];
 
-  const data = rows
-    .sort((a, b) => b.score - a.score)
-    .map((row, index) => [
-      index + 1,
-      row.name,
-      row.email,
-      row.exam,
-      row.center,
-      row.score,
-      row.correct,
-      row.wrong,
-      row.attempted,
-      row.rating,
-      row.violations,
-      formatDate(row.submittedAt)
-    ]);
+  const data =
+    rows.map(
+      (result, index) => [
 
-  const csvContent = [
-    header,
-    ...data
-  ]
-    .map(row =>
-      row
-        .map(value =>
-          `"${safeText(value).replaceAll('"', '""')}"`
+        index + 1,
+
+        result.name,
+
+        result.email,
+
+        result.exam ||
+          result.examTitle ||
+          "",
+
+        result.center ||
+          result.centerCode ||
+          "",
+
+        result.score,
+
+        result.total,
+
+        result.correct,
+
+        result.wrong,
+
+        result.unanswered,
+
+        result.rating,
+
+        result.violationCount,
+
+        result.penaltiesApplied,
+
+        formatDate(
+          result.submittedAt
         )
-        .join(",")
-    )
-    .join("\n");
+      ]
+    );
 
-  const blob = new Blob(
-    [csvContent],
-    { type: "text/csv;charset=utf-8;" }
-  );
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const csv =
+    "\ufeff" +
+    [header, ...data]
+      .map(row =>
+        row
+          .map(
+            value =>
+              `"${String(
+                value ?? ""
+              ).replaceAll(
+                '"',
+                '""'
+              )}"`
+          )
+          .join(",")
+      )
+      .join("\n");
+
+
+  const url =
+    URL.createObjectURL(
+      new Blob(
+        [csv],
+        {
+          type:
+            "text/csv;charset=utf-8"
+        }
+      )
+    );
+
+
+  const link =
+    document.createElement(
+      "a"
+    );
 
   link.href = url;
-  link.download = "testhub-results.csv";
+
+  link.download =
+    `TestHub-results-${
+      new Date()
+        .toISOString()
+        .slice(0, 10)
+    }.csv`;
+
   link.click();
 
-  URL.revokeObjectURL(url);
-});
-
-/* --------------------------------------------------
-   CLEAR RESULTS
--------------------------------------------------- */
-
-$("clearResults").addEventListener("click", async () => {
-  if (allResults.length === 0) {
-    alert("Delete karne ke liye koi result nahi hai.");
-    return;
-  }
-
-  const confirmed = confirm(
-    "WARNING: Kya aap sabhi results permanently delete karna chahte hain?"
+  setTimeout(
+    () =>
+      URL.revokeObjectURL(
+        url
+      ),
+    500
   );
-
-  if (!confirmed) return;
-
-  try {
-    const batch = writeBatch(db);
-
-    allResults.forEach(item => {
-      batch.delete(
-        doc(db, item.collectionName, item.id)
-      );
-    });
-
-    await batch.commit();
-
-    alert("All results deleted successfully.");
-    await loadEverything();
-  } catch (error) {
-    alert(`Unable to clear results: ${error.message}`);
-  }
-});
+};
