@@ -23,7 +23,7 @@ import {
 
 
 /* =========================================================
-   FIREBASE CONFIG
+   FIREBASE
 ========================================================= */
 
 const firebaseConfig = {
@@ -35,56 +35,38 @@ const firebaseConfig = {
   appId: "1:530965492161:web:b8ea984ef0c9cb14763f40"
 };
 
-const app =
-  initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-const auth =
-  getAuth(app);
-
-const db =
-  getFirestore(app);
-
-const $ =
-  id => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 
 /* =========================================================
-   STATE
+   GLOBAL STATE
 ========================================================= */
 
-let config;
+let config = null;
 
 let questions = [];
-
 let pool = [];
 
-let attempt;
-
+let attempt = null;
 let attemptId = "";
 
 let current = 0;
 
 let timerHandle = null;
-
 let monitor = null;
 
 let submitting = false;
-
 let pendingCandidate = null;
 
 let rating = 0;
 
 
-/*
-  Security startup protection
-
-  These variables are specifically used to prevent
-  the first fullscreen initialization event from
-  becoming a false violation.
-*/
-
+/* Security startup protection */
 let securityReady = false;
-
 let securityGraceUntil = 0;
 
 
@@ -92,105 +74,80 @@ let securityGraceUntil = 0;
    HELPERS
 ========================================================= */
 
-const normalizeEmail =
-  value =>
-    value
-      .trim()
-      .toLowerCase();
+const normalizeEmail = value =>
+  String(value || "").trim().toLowerCase();
 
 
-const asMillis =
-  value =>
-    value?.toMillis
-      ? value.toMillis()
-      : value?.seconds
-        ? value.seconds * 1000
-        : typeof value === "number"
-          ? value
-          : Date.parse(value) || 0;
+const asMillis = value => {
+  if (value?.toMillis) return value.toMillis();
+  if (value?.seconds) return value.seconds * 1000;
+  if (typeof value === "number") return value;
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
 
 
-const shuffle =
-  array => {
+const shuffle = array => {
+  const copy = [...array];
 
-    const copy =
-      [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
 
-    for (
-      let i =
-        copy.length - 1;
-      i > 0;
-      i--
-    ) {
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
 
-      const j =
-        Math.floor(
-          Math.random() *
-          (i + 1)
-        );
-
-      [
-        copy[i],
-        copy[j]
-      ] = [
-        copy[j],
-        copy[i]
-      ];
-    }
-
-    return copy;
-  };
+  return copy;
+};
 
 
 async function hash(value) {
+  const buffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  );
 
-  const buffer =
-    await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(
-        value
-      )
-    );
-
-  return [
-    ...new Uint8Array(
-      buffer
-    )
-  ]
-    .map(
-      byte =>
-        byte
-          .toString(16)
-          .padStart(2, "0")
-    )
+  return [...new Uint8Array(buffer)]
+    .map(x => x.toString(16).padStart(2, "0"))
     .join("");
 }
 
 
-/* =========================================================
-   LOGIN MESSAGE
-========================================================= */
+function message(text, error = false) {
+  const map = {
+    "The exam is not configured yet.":
+      "The exam is not configured yet.",
 
-function message(
-  text,
-  error = false
-) {
+    "The exam is currently closed.":
+      "The exam is currently closed.",
 
-  $("loginMessage")
-    .textContent =
-      text;
+    "The exam window has ended.":
+      "The exam window has ended.",
 
-  $("loginMessage")
-    .className =
-      `notice${
-        error
-          ? " error"
-          : ""
-      }`;
+    "Full name and email are required.":
+      "Full name and email are required.",
 
-  $("loginMessage")
-    .classList
-    .remove("hidden");
+    "The Exam Center Code is incorrect.":
+      "The Exam Center Code is incorrect.",
+
+    "An exam attempt already exists for this email.":
+      "An exam attempt already exists for this email.",
+
+    "This email has already submitted the exam.":
+      "This email has already submitted the exam.",
+
+    "Some saved questions are no longer available.":
+      "Some saved questions are no longer available.",
+
+    "The question bank is empty.":
+      "The question bank is empty."
+  };
+
+  const finalText = map[text] || text;
+
+  $("loginMessage").textContent = finalText;
+  $("loginMessage").className =
+    `notice${error ? " error" : ""}`;
 }
 
 
@@ -199,40 +156,18 @@ function message(
 ========================================================= */
 
 function applyBrand() {
-
   const name =
-    config
-      .instituteName
-      ?.trim() ||
-    "TestHub";
+    config?.instituteName?.trim() || "TestHub";
 
-
-  $("instituteName")
-    .textContent =
-      name;
-
+  $("instituteName").textContent = name;
 
   document.title =
     `${name} | Secure Examination`;
 
-
-  if (
-    config.instituteLogo
-  ) {
-
-    $("loginLogo")
-      .src =
-        config.instituteLogo;
-
-
-    $("loginLogo")
-      .classList
-      .remove("hidden");
-
-
-    $("loginFallback")
-      .classList
-      .add("hidden");
+  if (config?.instituteLogo) {
+    $("loginLogo").src = config.instituteLogo;
+    $("loginLogo").classList.remove("hidden");
+    $("loginFallback").classList.add("hidden");
   }
 }
 
@@ -242,391 +177,419 @@ function applyBrand() {
 ========================================================= */
 
 async function loadConfig() {
-
   try {
+    const snap = await getDoc(
+      doc(db, "exam_config", "current_test")
+    );
 
-    const snapshot =
-      await getDoc(
-        doc(
-          db,
-          "exam_config",
-          "current_test"
-        )
-      );
-
-
-    if (
-      !snapshot.exists()
-    ) {
-
-      throw new Error(
-        "The exam is not configured yet."
-      );
+    if (!snap.exists()) {
+      throw Error("The exam is not configured yet.");
     }
 
-
-    config =
-      snapshot.data();
-
+    config = snap.data();
 
     applyBrand();
 
+    const now = Date.now();
 
-    const now =
-      Date.now();
+    const start = asMillis(config.windowStart);
+    const end = asMillis(config.windowEnd);
 
+    if (config.examActive === false) {
+      throw Error("The exam is currently closed.");
+    }
 
-    const start =
-      asMillis(
-        config.windowStart
-      );
-
-
-    const end =
-      asMillis(
-        config.windowEnd
-      );
-
-
-    if (
-      config.examActive === false
-    ) {
-
-      throw new Error(
-        "The exam is currently closed."
+    if (start && now < start) {
+      throw Error(
+        `The exam will start on ${new Date(start).toLocaleString("en-IN")}.`
       );
     }
 
-
-    if (
-      start &&
-      now < start
-    ) {
-
-      throw new Error(
-        `The exam will start on ${
-          new Date(start)
-            .toLocaleString(
-              "en-IN"
-            )
-        }.`
-      );
+    if (end && now > end) {
+      throw Error("The exam window has ended.");
     }
 
+    const totalQuestions =
+      Number(config.studentLimit) ||
+      Number(config.totalPool) ||
+      0;
 
-    if (
-      end &&
-      now > end
-    ) {
+    $("examInfo").textContent =
+      `${config.examTitle || "TestHub Examination"} · ` +
+      `${config.durationMinutes || 30} minutes · ` +
+      `${totalQuestions || "Configured"} questions`;
 
-      throw new Error(
-        "The exam window has ended."
-      );
-    }
-
-
-    $("examInfo")
-      .textContent =
-        `${
-          config.examTitle ||
-          "TestHub Examination"
-        } · ${
-          config.durationMinutes ||
-          30
-        } minutes · ${
-          config.studentLimit ||
-          10
-        } questions`;
-
-
-    $("continueBtn")
-      .disabled =
-        false;
+    $("continueBtn").disabled = false;
 
   } catch (error) {
 
-    $("examInfo")
-      .textContent =
-        error.message;
+    $("examInfo").textContent =
+      error.message || "Unable to load exam configuration.";
 
-    $("examInfo")
-      .classList
-      .add("error");
+    $("examInfo").classList.add("error");
   }
 }
 
 
 /* =========================================================
-   AUTHENTICATION
+   AUTH
 ========================================================= */
 
-onAuthStateChanged(
-  auth,
-  user => {
+onAuthStateChanged(auth, user => {
 
-    if (user) {
-
-      loadConfig();
-
-      return;
-    }
-
-
-    signInAnonymously(auth)
-      .catch(
-        error => {
-
-          $("examInfo")
-            .textContent =
-              "Enable Firebase Anonymous Authentication: " +
-              error.message;
-
-          $("examInfo")
-            .classList
-            .add("error");
-        }
-      );
-
+  if (user) {
+    loadConfig();
+    return;
   }
-);
+
+  signInAnonymously(auth).catch(error => {
+
+    $("examInfo").textContent =
+      "Enable Firebase Anonymous Authentication: " +
+      error.message;
+
+    $("examInfo").classList.add("error");
+  });
+
+});
 
 
 /* =========================================================
    CANDIDATE FORM
 ========================================================= */
 
-$("candidateForm").onsubmit =
-  event => {
+$("candidateForm").onsubmit = event => {
 
-    event.preventDefault();
+  event.preventDefault();
 
+  const name =
+    $("candidateName").value.trim();
 
-    const name =
-      $("candidateName")
-        .value
-        .trim();
+  const email =
+    normalizeEmail($("candidateEmail").value);
 
-
-    const email =
-      normalizeEmail(
-        $("candidateEmail")
-          .value
-      );
+  const code =
+    $("centerCode").value.trim();
 
 
-    const centerCode =
-      $("centerCode")
-        .value
-        .trim();
+  if (!name || !email) {
+    return message(
+      "Full name and email are required.",
+      true
+    );
+  }
 
-
-    if (
-      !name ||
-      !email
-    ) {
-
-      return message(
-        "Full name and email are required.",
-        true
-      );
-    }
-
-
-    if (
-      config.centerCode &&
-      centerCode !==
-        String(
-          config.centerCode
-        )
-    ) {
-
-      return message(
-        "The Exam Center Code is incorrect.",
-        true
-      );
-    }
-
-
-    pendingCandidate = {
-      name,
-      email
-    };
-
-
-    $("configSummary")
-      .innerHTML =
-      `
-        <div>
-          <b>
-            ${
-              config.durationMinutes ||
-              30
-            }
-          </b>
-          <br>
-          Minutes
-        </div>
-
-        <div>
-          <b>
-            ${
-              config.studentLimit ||
-              10
-            }
-          </b>
-          <br>
-          Questions
-        </div>
-
-        <div>
-          <b>
-            ${
-              config.negativeMarking ||
-              0
-            }
-          </b>
-          <br>
-          Negative
-        </div>
-
-        <div>
-          <b>
-            ${
-              config.maxTabSwitches ||
-              config.autoSubmitAfter ||
-              3
-            }
-          </b>
-          <br>
-          Violations
-        </div>
-      `;
-
-
-    $("loginView")
-      .classList
-      .add("hidden");
-
-
-    $("instructionsView")
-      .classList
-      .remove("hidden");
-  };
-
-
-/* =========================================================
-   INSTRUCTIONS
-========================================================= */
-
-$("backBtn").onclick =
-  () => {
-
-    $("instructionsView")
-      .classList
-      .add("hidden");
-
-
-    $("loginView")
-      .classList
-      .remove("hidden");
-  };
-
-
-$("consent").onchange =
-  () => {
-
-    $("startBtn")
-      .disabled =
-        !$("consent")
-          .checked;
-  };
-
-
-$("startBtn").onclick =
-  prepareExam;
-
-
-/* =========================================================
-   QUESTION BANK VALIDATION
-========================================================= */
-
-function validate(
-  bank
-) {
 
   if (
-    !Array.isArray(bank)
+    config.centerCode &&
+    code !== String(config.centerCode).trim()
   ) {
+    return message(
+      "The Exam Center Code is incorrect.",
+      true
+    );
+  }
 
-    throw new Error(
+
+  pendingCandidate = {
+    name,
+    email,
+    centerCode: code
+  };
+
+
+  const totalQuestions =
+    Number(config.studentLimit) ||
+    Number(config.totalPool) ||
+    0;
+
+
+  $("configSummary").innerHTML = `
+    <div>
+      <b>${config.durationMinutes || 30}</b><br>
+      Minutes
+    </div>
+
+    <div>
+      <b>${totalQuestions || "-"}</b><br>
+      Questions
+    </div>
+
+    <div>
+      <b>${config.negativeMarking || 0}</b><br>
+      Negative
+    </div>
+
+    <div>
+      <b>${config.maxTabSwitches || config.autoSubmitAfter || 3}</b><br>
+      Violations
+    </div>
+  `;
+
+
+  $("loginView").classList.add("hidden");
+  $("instructionsView").classList.remove("hidden");
+};
+
+
+/* =========================================================
+   BACK
+========================================================= */
+
+$("backBtn").onclick = () => {
+
+  $("instructionsView").classList.add("hidden");
+  $("loginView").classList.remove("hidden");
+
+};
+
+
+/* =========================================================
+   CONSENT
+========================================================= */
+
+$("consent").onchange = () => {
+
+  $("startBtn").disabled =
+    !$("consent").checked;
+
+};
+
+$("startBtn").onclick = prepareExam;
+
+
+/* =========================================================
+   QUESTION VALIDATION
+========================================================= */
+
+function validateQuestionBank(bank) {
+
+  if (!Array.isArray(bank)) {
+    throw Error(
       "The question bank format is invalid."
     );
   }
 
 
-  for (
-    const question of bank
-  ) {
+  for (const question of bank) {
+
+    const questionText =
+      question.q ?? question.question;
+
+    const answer =
+      question.a ?? question.answer;
+
 
     if (
       question.id == null ||
-      !(question.q ||
-        question.question) ||
-      !Array.isArray(
-        question.options
-      ) ||
+      !questionText ||
+      !Array.isArray(question.options) ||
       question.options.length < 2 ||
-      !question.options.includes(
-        question.a ??
-        question.answer
-      )
+      !question.options.includes(answer)
     ) {
-
-      throw new Error(
-        `Question ${
-          question.id ??
-          "?"
-        } is invalid.`
+      throw Error(
+        `Question ${question.id ?? "?"} is invalid.`
       );
     }
   }
+
 }
 
 
 /* =========================================================
-   LOAD QUESTION BANK
+   LOAD QUESTION SOURCE
 ========================================================= */
 
-async function getPool() {
+async function loadQuestionSource(source) {
+
+  const path =
+    String(source || "chapter.json").trim();
 
   const response =
-    await fetch(
-      "./chapter.json",
-      {
-        cache:
-          "no-store"
-      }
-    );
+    await fetch(`./${path}`, {
+      cache: "no-store"
+    });
 
 
-  if (
-    !response.ok
-  ) {
-
-    throw new Error(
-      "The question file could not be loaded."
+  if (!response.ok) {
+    throw Error(
+      `Question source could not be loaded: ${path}`
     );
   }
 
 
-  pool =
-    await response.json();
+  const data = await response.json();
+
+  validateQuestionBank(data);
+
+  return data;
+}
 
 
-  validate(pool);
+/* =========================================================
+   BUILD QUESTION POOL
+========================================================= */
+
+async function getConfiguredQuestionPool() {
+
+  /*
+     New admin configuration:
+
+     subjects: [
+       {
+         name: "Physics",
+         count: 30,
+         source: "physics.json",
+         order: "random"
+       },
+       {
+         name: "Chemistry",
+         count: 30,
+         source: "chemistry.json",
+         order: "sequential"
+       }
+     ]
+  */
 
 
-  return pool;
+  if (
+    Array.isArray(config.subjects) &&
+    config.subjects.length
+  ) {
+
+    const finalQuestions = [];
+
+    for (const subject of config.subjects) {
+
+      const subjectName =
+        String(subject.name || "Subject").trim();
+
+      const requestedCount =
+        Number(subject.count) || 0;
+
+      if (requestedCount <= 0) {
+        continue;
+      }
+
+
+      const source =
+        String(
+          subject.source || "chapter.json"
+        ).trim();
+
+
+      const order =
+        subject.order === "sequential"
+          ? "sequential"
+          : "random";
+
+
+      const subjectBank =
+        await loadQuestionSource(source);
+
+
+      let selected;
+
+
+      if (order === "sequential") {
+
+        selected =
+          [...subjectBank].slice(
+            0,
+            Math.min(
+              requestedCount,
+              subjectBank.length
+            )
+          );
+
+      } else {
+
+        selected =
+          shuffle(subjectBank).slice(
+            0,
+            Math.min(
+              requestedCount,
+              subjectBank.length
+            )
+          );
+      }
+
+
+      /*
+         Attach subject information without
+         changing original question structure.
+      */
+
+      selected = selected.map(question => ({
+        ...question,
+        __subject: subjectName,
+        __source: source
+      }));
+
+
+      finalQuestions.push(...selected);
+    }
+
+
+    /*
+       Global student question limit.
+    */
+
+    const configuredLimit =
+      Number(config.studentLimit) || 0;
+
+
+    if (configuredLimit > 0) {
+      return finalQuestions.slice(
+        0,
+        configuredLimit
+      );
+    }
+
+
+    return finalQuestions;
+  }
+
+
+  /*
+     Backward compatibility with old configuration.
+  */
+
+  const legacyBank =
+    await loadQuestionSource(
+      config.questionSource || "chapter.json"
+    );
+
+
+  const limit =
+    Number(config.studentLimit) ||
+    legacyBank.length;
+
+
+  const order =
+    config.questionOrder === "sequential"
+      ? "sequential"
+      : "random";
+
+
+  const selected =
+    order === "sequential"
+      ? legacyBank.slice(
+          0,
+          Math.min(limit, legacyBank.length)
+        )
+      : shuffle(legacyBank).slice(
+          0,
+          Math.min(limit, legacyBank.length)
+        );
+
+
+  return selected.map(question => ({
+    ...question,
+    __subject: "All Questions",
+    __source:
+      config.questionSource || "chapter.json"
+  }));
 }
 
 
@@ -636,22 +599,21 @@ async function getPool() {
 
 async function prepareExam() {
 
-  const button =
-    $("startBtn");
+  const button = $("startBtn");
 
-
-  button.disabled =
-    true;
+  button.disabled = true;
 
 
   try {
 
-    if (
-      !auth.currentUser
-    ) {
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
 
-      await signInAnonymously(
-        auth
+
+    if (!pendingCandidate) {
+      throw Error(
+        "Full name and email are required."
       );
     }
 
@@ -663,98 +625,68 @@ async function prepareExam() {
 
 
     const attemptRef =
-      doc(
-        db,
-        "attempts",
-        attemptId
-      );
+      doc(db, "attempts", attemptId);
 
 
     const existing =
-      await getDoc(
-        attemptRef
-      );
+      await getDoc(attemptRef);
 
 
-    await getPool();
+    pool =
+      await getConfiguredQuestionPool();
 
 
-    /*
-      RESUME EXISTING EXAM
-    */
+    if (existing.exists()) {
 
-    if (
-      existing.exists()
-    ) {
-
-      attempt =
-        existing.data();
+      attempt = existing.data();
 
 
       if (
         attempt.ownerUid !==
         auth.currentUser.uid
       ) {
-
-        throw new Error(
+        throw Error(
           "An exam attempt already exists for this email."
         );
       }
 
 
-      if (
-        attempt.status ===
-        "submitted"
-      ) {
-
-        throw new Error(
+      if (attempt.status === "submitted") {
+        throw Error(
           "This email has already submitted the exam."
         );
       }
 
 
-      const questionMap =
+      const map =
         new Map(
-          pool.map(
-            question => [
-              String(
-                question.id
-              ),
-              question
-            ]
-          )
+          pool.map(q => [
+            String(q.id),
+            q
+          ])
         );
 
 
       questions =
-        attempt.questionIds
-          .map(
-            id =>
-              questionMap.get(
-                String(id)
-              )
+        (attempt.questionIds || [])
+          .map(id =>
+            map.get(String(id))
           )
-          .filter(
-            Boolean
-          );
+          .filter(Boolean);
 
 
       if (
         questions.length !==
-        attempt.questionIds.length
+        (attempt.questionIds || []).length
       ) {
-
-        throw new Error(
+        throw Error(
           "Some saved questions are no longer available."
         );
       }
 
 
       current =
-        Number(
-          attempt.currentIndex ||
-          0
-        );
+        Number(attempt.currentIndex || 0);
 
 
       startExam(true);
@@ -763,36 +695,17 @@ async function prepareExam() {
     }
 
 
-    /*
-      CREATE NEW EXAM
-    */
-
-    questions =
-      shuffle(pool)
-        .slice(
-          0,
-          Math.min(
-            Number(
-              config.studentLimit
-            ) ||
-            pool.length,
-            pool.length
-          )
-        );
+    questions = pool;
 
 
-    if (
-      !questions.length
-    ) {
-
-      throw new Error(
+    if (!questions.length) {
+      throw Error(
         "The question bank is empty."
       );
     }
 
 
-    const startedAt =
-      Date.now();
+    const startedAt = Date.now();
 
 
     attempt = {
@@ -800,7 +713,25 @@ async function prepareExam() {
       ownerUid:
         auth.currentUser.uid,
 
-      ...pendingCandidate,
+      name:
+        pendingCandidate.name,
+
+      email:
+        pendingCandidate.email,
+
+      centerCode:
+        pendingCandidate.centerCode || "",
+
+      examId:
+        config.examId || "current_test",
+
+      exam:
+        config.examTitle ||
+        "TestHub Examination",
+
+      examTitle:
+        config.examTitle ||
+        "TestHub Examination",
 
       status:
         "in_progress",
@@ -809,22 +740,17 @@ async function prepareExam() {
 
       endsAt:
         startedAt +
-        (
-          Number(
-            config.durationMinutes
-          ) ||
-          30
-        ) *
+        (Number(config.durationMinutes) || 30) *
         60000,
 
       currentIndex:
         0,
 
       questionIds:
-        questions.map(
-          question =>
-            question.id
-        ),
+        questions.map(q => q.id),
+
+      questionSubjects:
+        questions.map(q => q.__subject || "General"),
 
       answers:
         {},
@@ -840,7 +766,6 @@ async function prepareExam() {
 
       penaltiesApplied:
         0
-
     };
 
 
@@ -848,100 +773,67 @@ async function prepareExam() {
       attemptRef,
       {
         ...attempt,
-
-        updatedAt:
-          serverTimestamp()
+        updatedAt: serverTimestamp()
       }
     );
 
 
     startExam(false);
 
+
   } catch (error) {
 
     message(
-      error.message,
+      error.message ||
+        "Unable to start the exam.",
       true
     );
 
 
-    $("instructionsView")
-      .classList
-      .add("hidden");
+    $("instructionsView").classList.add("hidden");
+    $("loginView").classList.remove("hidden");
 
-
-    $("loginView")
-      .classList
-      .remove("hidden");
-
-
-    button.disabled =
-      false;
+    button.disabled = false;
   }
+
 }
 
 
 /* =========================================================
    START EXAM
-   IMPORTANT: FALSE FULLSCREEN PENALTY FIX
 ========================================================= */
 
-async function startExam(
-  resumed
-) {
+async function startExam(resumed) {
 
-  $("instructionsView")
-    .classList
-    .add("hidden");
+  $("instructionsView").classList.add("hidden");
+  $("examView").classList.remove("hidden");
 
 
-  $("examView")
-    .classList
-    .remove("hidden");
+  $("examTitle").textContent =
+    config.examTitle ||
+    "TestHub Examination";
 
 
-  $("examTitle")
-    .textContent =
-      config.examTitle ||
-      "TestHub Examination";
-
-
-  $("candidateLabel")
-    .textContent =
-      `${attempt.name} · ${attempt.email}`;
+  $("candidateLabel").textContent =
+    `${attempt.name} · ${attempt.email}`;
 
 
   render();
-
 
   startTimer();
 
 
   /*
-    ---------------------------------------------------------
-    SECURITY STARTUP PROTECTION
-    ---------------------------------------------------------
-
-    Browser fullscreen initialization can create a
-    fullscreen-exit / blur / visibility event.
-
-    Those events MUST NOT become violations.
-
-    We therefore create a 4-second protected startup window.
+     IMPORTANT:
+     Fullscreen initialization must happen
+     BEFORE security monitor starts.
   */
 
-  securityReady =
-    false;
-
+  securityReady = false;
 
   securityGraceUntil =
     Date.now() + 4000;
 
-
-  /*
-    Create monitor first,
-    BUT DO NOT START EVENT MONITORING YET.
-  */
 
   monitor =
     new SecurityMonitor({
@@ -956,16 +848,9 @@ async function startExam(
         violation,
 
       onForceSubmit:
-        () =>
-          submitExam(true)
-
+        () => submitExam(true)
     });
 
-
-  /*
-    STEP 1:
-    Request fullscreen BEFORE starting monitor.
-  */
 
   try {
 
@@ -980,36 +865,15 @@ async function startExam(
   }
 
 
-  /*
-    STEP 2:
-    Now start monitoring.
-  */
-
   monitor.start();
 
 
-  /*
-    STEP 3:
-    Give browser enough time to finish
-    fullscreen initialization.
-  */
+  setTimeout(() => {
 
-  setTimeout(
-    () => {
+    securityReady = true;
+    securityGraceUntil = 0;
 
-      securityReady =
-        true;
-
-      securityGraceUntil =
-        0;
-
-      console.log(
-        "Security monitoring fully armed."
-      );
-
-    },
-    4000
-  );
+  }, 4000);
 
 
   if (resumed) {
@@ -1018,12 +882,14 @@ async function startExam(
       lastResumedAt:
         serverTimestamp()
     });
+
   }
+
 }
 
 
 /* =========================================================
-   QUESTION RENDER
+   RENDER QUESTION
 ========================================================= */
 
 function render() {
@@ -1032,8 +898,7 @@ function render() {
     questions[current];
 
 
-  if (!question)
-    return;
+  if (!question) return;
 
 
   const text =
@@ -1041,18 +906,12 @@ function render() {
     question.question;
 
 
-  $("questionNumber")
-    .textContent =
-      `Question ${
-        current + 1
-      }/${
-        questions.length
-      }`;
+  $("questionNumber").textContent =
+    `Question ${current + 1}/${questions.length}`;
 
 
-  $("questionText")
-    .textContent =
-      text;
+  $("questionText").textContent =
+    text;
 
 
   const image =
@@ -1069,175 +928,127 @@ function render() {
 
 
   if (image) {
-
-    $("questionImage")
-      .src =
-        image;
+    $("questionImage").src =
+      image;
   }
 
 
-  $("options")
-    .innerHTML =
-      "";
+  $("options").innerHTML = "";
 
 
-  question.options
-    .forEach(
-      (
-        option,
-        index
-      ) => {
+  question.options.forEach(
+    (option, index) => {
 
-        const label =
-          document.createElement(
-            "label"
-          );
+      const label =
+        document.createElement("label");
 
+      const radio =
+        document.createElement("input");
 
-        const radio =
-          document.createElement(
-            "input"
-          );
+      const span =
+        document.createElement("span");
 
 
-        const span =
-          document.createElement(
-            "span"
-          );
+      label.className = "option";
+
+      radio.type = "radio";
+      radio.name = "answer";
+      radio.value = option;
+
+      radio.checked =
+        attempt.answers?.[
+          String(question.id)
+        ] === option;
 
 
-        label.className =
-          "option";
+      span.textContent =
+        `${String.fromCharCode(65 + index)}. ${option}`;
 
 
-        radio.type =
-          "radio";
+      label.append(
+        radio,
+        span
+      );
 
 
-        radio.name =
-          "answer";
-
-
-        radio.value =
-          option;
-
-
-        radio.checked =
-          attempt
-            .answers?.[
-              question.id
-            ] === option;
-
-
-        span.textContent =
-          `${
-            String.fromCharCode(
-              65 + index
-            )
-          }. ${option}`;
-
-
-        label.append(
-          radio,
-          span
-        );
-
-
-        $("options")
-          .append(label);
-      }
-    );
+      $("options").append(label);
+    }
+  );
 
 
   /*
-    QUESTION PALETTE
+     Subject badge.
+     Uses existing questionText area,
+     so HTML change is not required.
   */
 
-  $("palette")
-    .innerHTML =
-      "";
+  const subjectName =
+    question.__subject || "General";
+
+
+  if (subjectName) {
+
+    $("questionText").setAttribute(
+      "data-subject",
+      subjectName
+    );
+  }
+
+
+  $("palette").innerHTML = "";
 
 
   questions.forEach(
-    (
-      item,
-      index
-    ) => {
+    (item, index) => {
 
       const button =
-        document.createElement(
-          "button"
-        );
+        document.createElement("button");
 
 
       button.className =
-        `
-          qbtn
-          ${
-            index === current
-              ? " current"
-              : ""
-          }
-          ${
-            attempt.answers?.[
-              item.id
-            ]
-              ? " answered"
-              : ""
-          }
-          ${
-            attempt.review?.includes(
-              item.id
-            )
-              ? " review"
-              : ""
-          }
-        `;
+        `qbtn` +
+        `${index === current ? " current" : ""}` +
+        `${attempt.answers?.[
+          String(item.id)
+        ] ? " answered" : ""}` +
+        `${attempt.review?.includes(item.id)
+          ? " review"
+          : ""}`;
 
 
       button.textContent =
         index + 1;
 
 
-      button.onclick =
-        () => {
+      button.onclick = () => {
 
-          save();
+        save();
 
-          current =
-            index;
+        current = index;
 
-          sync();
+        sync();
 
-          render();
-        };
+        render();
+      };
 
 
-      $("palette")
-        .append(button);
+      $("palette").append(button);
+
     }
   );
 
 
-  $("prevBtn")
-    .disabled =
-      !current;
+  $("prevBtn").disabled =
+    current === 0;
 
 
-  $("securityCount")
-    .textContent =
-      `Violations: ${
-        attempt.violationCount ||
-        0
-      }`;
+  $("securityCount").textContent =
+    `Violations: ${attempt.violationCount || 0}`;
 
 
-  $("penaltyCount")
-    .textContent =
-      `Penalty: ${
-        attempt.penaltiesApplied ||
-        0
-      }`;
+  $("penaltyCount").textContent =
+    `Penalty: ${attempt.penaltiesApplied || 0}`;
+
 }
 
 
@@ -1253,16 +1064,24 @@ function save() {
     );
 
 
-  if (!selected)
-    return;
+  if (!selected) return;
+
+
+  const question =
+    questions[current];
+
+
+  if (!question) return;
+
+
+  if (!attempt.answers) {
+    attempt.answers = {};
+  }
 
 
   attempt.answers[
-    String(
-      questions[current].id
-    )
-  ] =
-    selected.value;
+    String(question.id)
+  ] = selected.value;
 }
 
 
@@ -1270,16 +1089,13 @@ function save() {
    SYNC ATTEMPT
 ========================================================= */
 
-async function sync(
-  extra = {}
-) {
+async function sync(extra = {}) {
 
   Object.assign(
     attempt,
     extra,
     {
-      currentIndex:
-        current
+      currentIndex: current
     }
   );
 
@@ -1287,36 +1103,30 @@ async function sync(
   try {
 
     await updateDoc(
-      doc(
-        db,
-        "attempts",
-        attemptId
-      ),
+      doc(db, "attempts", attemptId),
       {
-
         answers:
-          attempt.answers,
+          attempt.answers || {},
 
         review:
-          attempt.review,
+          attempt.review || [],
 
         currentIndex:
           current,
 
         violations:
-          attempt.violations,
+          attempt.violations || [],
 
         violationCount:
-          attempt.violationCount,
+          attempt.violationCount || 0,
 
         penaltiesApplied:
-          attempt.penaltiesApplied,
+          attempt.penaltiesApplied || 0,
 
         ...extra,
 
         updatedAt:
           serverTimestamp()
-
       }
     );
 
@@ -1326,7 +1136,9 @@ async function sync(
       "Attempt sync failed:",
       error
     );
+
   }
+
 }
 
 
@@ -1334,205 +1146,132 @@ async function sync(
    NAVIGATION
 ========================================================= */
 
-$("prevBtn").onclick =
-  () => {
+$("prevBtn").onclick = () => {
 
-    save();
+  save();
 
+  current =
+    Math.max(
+      0,
+      current - 1
+    );
 
-    current =
-      Math.max(
-        0,
-        current - 1
-      );
+  sync();
 
-
-    sync();
-
-    render();
-  };
+  render();
+};
 
 
-$("saveNextBtn").onclick =
-  () => {
+$("saveNextBtn").onclick = () => {
 
-    save();
+  save();
 
+  current =
+    Math.min(
+      questions.length - 1,
+      current + 1
+    );
 
-    current =
-      Math.min(
-        questions.length - 1,
-        current + 1
-      );
+  sync();
 
-
-    sync();
-
-    render();
-  };
+  render();
+};
 
 
-$("reviewBtn").onclick =
-  () => {
+$("reviewBtn").onclick = () => {
 
-    save();
+  save();
 
-
-    const questionId =
-      questions[current].id;
+  const id =
+    questions[current].id;
 
 
-    const position =
-      attempt.review.indexOf(
-        questionId
-      );
+  const index =
+    attempt.review.indexOf(id);
 
 
-    if (
-      position < 0
-    ) {
-
-      attempt.review.push(
-        questionId
-      );
-
-    } else {
-
-      attempt.review.splice(
-        position,
-        1
-      );
-    }
+  if (index < 0) {
+    attempt.review.push(id);
+  } else {
+    attempt.review.splice(index, 1);
+  }
 
 
-    sync();
+  sync();
 
-    render();
-  };
+  render();
+};
 
 
-$("submitBtn").onclick =
-  () => {
+$("submitBtn").onclick = () => {
 
-    if (
-      confirm(
-        "Do you want to submit the exam now?"
-      )
-    ) {
+  if (
+    confirm(
+      "Do you want to submit the exam now?"
+    )
+  ) {
+    submitExam(false);
+  }
 
-      submitExam(false);
-    }
-  };
+};
 
 
 /* =========================================================
    SECURITY ALERT
 ========================================================= */
 
-function alertSecurity(
-  text
-) {
+function alertSecurity(text) {
 
-  $("securityAlert")
-    .textContent =
-      text;
-
+  $("securityAlert").textContent =
+    text;
 
   $("securityAlert")
     .classList
     .remove("hidden");
 
 
-  setTimeout(
-    () => {
+  setTimeout(() => {
 
-      $("securityAlert")
-        .classList
-        .add("hidden");
+    $("securityAlert")
+      .classList
+      .add("hidden");
 
-    },
-    3500
-  );
+  }, 3500);
+
 }
 
 
 /* =========================================================
    SECURITY VIOLATION
-   IMPORTANT: FIRST FULLSCREEN EVENT IS IGNORED
 ========================================================= */
 
-async function violation(
-  event
-) {
-
-  if (
-    submitting
-  ) {
-
-    return;
-  }
-
+async function violation(event) {
 
   /*
-    ========================================================
-    FALSE FIRST PENALTY FIX
-    ========================================================
-
-    Before securityReady becomes true,
-    browser startup events are ignored.
-
-    This protects against:
-
-    - fullscreen initialization
-    - first blur
-    - first visibilitychange
-    - viewport adjustment
-    - browser UI transition
-
-    They do NOT increment violationCount.
-    They do NOT add penalty.
+     Ignore fullscreen startup transition
+     and initial security setup.
   */
 
   if (
     !securityReady ||
-    Date.now() <
-      securityGraceUntil
+    Date.now() < securityGraceUntil
   ) {
-
-    console.log(
-      "Ignored startup security event:",
-      event?.type
-    );
-
     return;
   }
 
 
-  /*
-    REAL VIOLATION
-  */
+  if (submitting) return;
+
 
   attempt.violationCount =
-    (
-      attempt.violationCount ||
-      0
-    ) + 1;
-
-
-  const penalty =
-    Number(
-      config.tabPenalty
-    ) || 0;
+    Number(attempt.violationCount || 0) + 1;
 
 
   attempt.penaltiesApplied =
     Number(
       (
-        (
-          attempt.penaltiesApplied ||
-          0
-        ) +
-        penalty
+        Number(attempt.penaltiesApplied || 0) +
+        Number(config.tabPenalty || 0)
       ).toFixed(2)
     );
 
@@ -1540,91 +1279,94 @@ async function violation(
   attempt.violations.push({
 
     type:
-      event?.type ||
-      "security-event",
+      event.type,
 
     message:
-      event?.message ||
-      "",
+      event.message || "",
 
     at:
       Date.now()
-
   });
 
 
   alertSecurity(
-    `${
-      event?.message ||
-      "Suspicious activity"
-    } · Violation ${
-      attempt.violationCount
-    }`
+    `${event.message || "Suspicious activity"} · ` +
+    `Violation ${attempt.violationCount}`
   );
 
 
   /*
-    OPTIONAL QUESTION REPLACEMENT
+     Replace current question
+     when admin enabled the feature.
   */
 
   if (
-    config.replaceQuestionOnSwitch !==
-    false
+    config.replaceQuestionOnSwitch !== false
   ) {
 
     const used =
       new Set(
-        questions.map(
-          question =>
-            String(
-              question.id
-            )
+        questions.map(q =>
+          String(q.id)
         )
       );
 
 
-    const replacement =
+    const candidate =
       shuffle(pool)
         .find(
-          question =>
+          q =>
             !used.has(
-              String(
-                question.id
-              )
+              String(q.id)
             )
         );
 
 
-    if (replacement) {
+    if (candidate) {
+
+      const oldId =
+        questions[current].id;
+
 
       delete attempt.answers[
-        String(
-          questions[current].id
-        )
+        String(oldId)
       ];
 
 
       questions[current] =
-        replacement;
+        candidate;
 
 
-      attempt.questionIds[
-        current
-      ] =
-        replacement.id;
+      attempt.questionIds[current] =
+        candidate.id;
+
+
+      if (!attempt.questionSubjects) {
+        attempt.questionSubjects = [];
+      }
+
+
+      attempt.questionSubjects[current] =
+        candidate.__subject || "General";
 
 
       await sync({
         questionIds:
-          attempt.questionIds
+          attempt.questionIds,
+
+        questionSubjects:
+          attempt.questionSubjects
       });
+
     }
+
   }
 
 
   await sync();
 
   render();
+
 }
 
 
@@ -1639,55 +1381,32 @@ function startTimer() {
     const left =
       Math.max(
         0,
-        Number(
-          attempt.endsAt
-        ) -
+        Number(attempt.endsAt) -
         Date.now()
       );
 
 
     const minutes =
       Math.floor(
-        left /
-        60000
+        left / 60000
       );
 
 
     const seconds =
       Math.floor(
-        (
-          left %
-          60000
-        ) /
-        1000
+        (left % 60000) / 1000
       );
 
 
-    $("timer")
-      .textContent =
-        `${
-          String(
-            minutes
-          ).padStart(
-            2,
-            "0"
-          )
-        }:${
-          String(
-            seconds
-          ).padStart(
-            2,
-            "0"
-          )
-        }`;
+    $("timer").textContent =
+      `${String(minutes).padStart(2, "0")}:` +
+      `${String(seconds).padStart(2, "0")}`;
 
 
-    if (
-      !left
-    ) {
-
+    if (!left) {
       submitExam(true);
     }
+
   };
 
 
@@ -1699,6 +1418,7 @@ function startTimer() {
       tick,
       1000
     );
+
 }
 
 
@@ -1709,38 +1429,32 @@ function startTimer() {
 function calculate() {
 
   let correct = 0;
-
   let wrong = 0;
 
 
-  for (
-    const question of questions
-  ) {
+  for (const question of questions) {
 
     const answer =
       attempt.answers?.[
-        question.id
+        String(question.id)
       ];
 
 
-    const right =
+    const correctAnswer =
       question.a ??
       question.answer;
 
 
-    if (
-      answer ===
-      right
-    ) {
+    if (answer === correctAnswer) {
 
       correct++;
 
-    } else if (
-      answer
-    ) {
+    } else if (answer) {
 
       wrong++;
+
     }
+
   }
 
 
@@ -1755,15 +1469,8 @@ function calculate() {
       (
         correct -
         wrong *
-          (
-            Number(
-              config.negativeMarking
-            ) || 0
-          ) -
-        (
-          attempt.penaltiesApplied ||
-          0
-        )
+          (Number(config.negativeMarking) || 0) -
+        (attempt.penaltiesApplied || 0)
       ).toFixed(2)
     );
 
@@ -1774,6 +1481,7 @@ function calculate() {
     unanswered,
     score
   };
+
 }
 
 
@@ -1781,26 +1489,15 @@ function calculate() {
    SUBMIT EXAM
 ========================================================= */
 
-async function submitExam(
-  auto = false
-) {
+async function submitExam(autoSubmitted) {
 
-  if (
-    submitting
-  ) {
-
-    return;
-  }
+  if (submitting) return;
 
 
-  submitting =
-    true;
+  submitting = true;
 
 
-  clearInterval(
-    timerHandle
-  );
-
+  clearInterval(timerHandle);
 
   monitor?.stop();
 
@@ -1813,79 +1510,21 @@ async function submitExam(
 
 
   const tabTypes = [
-
     "tab-hidden",
-
     "window-blur",
-
     "fullscreen-exit",
-
     "viewport-change"
-
   ];
 
 
   const copyTypes = [
-
     "copy",
-
     "cut",
-
     "paste",
-
     "context-menu",
-
     "print",
-
     "selection"
-
   ];
-
-
-  /*
-    Store complete question snapshot.
-
-    This will later allow the performance
-    report to show questions and answers.
-  */
-
-  const questionSnapshot =
-    questions.map(
-      (
-        question,
-        index
-      ) => ({
-
-        number:
-          index + 1,
-
-        id:
-          question.id,
-
-        question:
-          question.q ??
-          question.question,
-
-        options:
-          question.options,
-
-        correctAnswer:
-          question.a ??
-          question.answer,
-
-        selectedAnswer:
-          attempt.answers?.[
-            question.id
-          ] ||
-          "Not answered",
-
-        image:
-          question.image ||
-          question.imageUrl ||
-          ""
-
-      })
-    );
 
 
   const result = {
@@ -1899,69 +1538,132 @@ async function submitExam(
     email:
       attempt.email,
 
-    exam:
-      config.examTitle ||
-      "TestHub Examination",
-
-    center:
+    centerCode:
+      attempt.centerCode ||
       config.centerCode ||
       "",
 
-    ...calculated,
+    examId:
+      config.examId ||
+      attempt.examId ||
+      "current_test",
+
+    exam:
+      config.examTitle ||
+      attempt.examTitle ||
+      "TestHub Examination",
+
+    examTitle:
+      config.examTitle ||
+      attempt.examTitle ||
+      "TestHub Examination",
+
+    instituteName:
+      config.instituteName ||
+      "TestHub",
+
+    correct:
+      calculated.correct,
+
+    wrong:
+      calculated.wrong,
+
+    unanswered:
+      calculated.unanswered,
+
+    score:
+      calculated.score,
 
     total:
       questions.length,
 
     answers:
-      attempt.answers,
+      attempt.answers || {},
 
     questionIds:
-      attempt.questionIds,
+      attempt.questionIds || [],
 
-    questionSnapshot,
+    questionSubjects:
+      attempt.questionSubjects || [],
 
     tabSwitches:
       attempt.violations.filter(
-        violation =>
-          tabTypes.includes(
-            violation.type
-          )
+        item =>
+          tabTypes.includes(item.type)
       ).length,
 
     copiesAttempted:
       attempt.violations.filter(
-        violation =>
-          copyTypes.includes(
-            violation.type
-          )
+        item =>
+          copyTypes.includes(item.type)
       ).length,
 
     penaltiesApplied:
-      attempt.penaltiesApplied ||
-      0,
+      attempt.penaltiesApplied || 0,
 
     violationCount:
-      attempt.violationCount ||
-      0,
+      attempt.violationCount || 0,
 
     violations:
-      attempt.violations,
+      attempt.violations || [],
 
     autoSubmitted:
-      auto,
+      autoSubmitted,
 
     timeTakenSeconds:
       Math.round(
         (
           Date.now() -
           attempt.startedAt
-        ) /
-        1000
+        ) / 1000
       ),
 
     submittedAt:
       serverTimestamp()
+
   };
+
+
+  /*
+     Snapshot used by performance/download
+     functions.
+  */
+
+  result.questionSnapshot =
+    questions.map(
+      (question, index) => ({
+
+        number:
+          index + 1,
+
+        id:
+          question.id,
+
+        subject:
+          question.__subject ||
+          "General",
+
+        question:
+          question.q ??
+          question.question,
+
+        options:
+          Array.isArray(question.options)
+            ? question.options
+            : [],
+
+        correctAnswer:
+          question.a ??
+          question.answer,
+
+        studentAnswer:
+          attempt.answers?.[
+            String(question.id)
+          ] ||
+          "Not answered"
+
+      })
+    );
 
 
   try {
@@ -1988,12 +1690,10 @@ async function submitExam(
           "submitted",
 
         answers:
-          attempt.answers,
+          attempt.answers || {},
 
         resultSummary:
           calculated,
-
-        questionSnapshot,
 
         submittedAt:
           serverTimestamp(),
@@ -2005,39 +1705,29 @@ async function submitExam(
     );
 
 
-    if (
-      document.fullscreenElement
-    ) {
+    if (document.fullscreenElement) {
 
       document
         .exitFullscreen()
-        .catch(
-          () => {}
-        );
+        .catch(() => {});
+
     }
 
 
-    showResult(
-      result
-    );
+    showResult(result);
 
 
   } catch (error) {
 
-    console.error(
-      "Result submission failed:",
-      error
-    );
-
-
-    submitting =
-      false;
-
+    submitting = false;
 
     alert(
-      "The result could not be submitted. Check your internet connection and try again."
+      "The result could not be submitted. " +
+      "Check your internet connection and try again."
     );
+
   }
+
 }
 
 
@@ -2045,9 +1735,7 @@ async function submitExam(
    RESULT SCREEN
 ========================================================= */
 
-function showResult(
-  result
-) {
+function showResult(result) {
 
   $("examView")
     .classList
@@ -2059,170 +1747,655 @@ function showResult(
     .remove("hidden");
 
 
-  $("finalScore")
-    .textContent =
-      `${result.score}/${result.total}`;
+  $("finalScore").textContent =
+    `${result.score}/${result.total}`;
 
 
-  $("accuracy")
-    .textContent =
-      `${
-        result.total
-          ? Math.round(
-              result.correct /
-              result.total *
-              100
-            )
-          : 0
-      }%`;
+  $("accuracy").textContent =
+    `${result.total
+      ? Math.round(
+          result.correct /
+          result.total *
+          100
+        )
+      : 0
+    }%`;
 
 
-  $("correctCount")
-    .textContent =
-      result.correct;
+  $("correctCount").textContent =
+    result.correct;
 
 
-  $("wrongCount")
-    .textContent =
-      result.wrong;
+  $("wrongCount").textContent =
+    result.wrong;
 
 
-  $("securitySummary")
-    .textContent =
-      `Tab/fullscreen: ${
-        result.tabSwitches
-      } · Copy/other: ${
-        result.copiesAttempted
-      } · Penalty: ${
-        result.penaltiesApplied
-      }`;
+  $("securitySummary").textContent =
+    `Tab/fullscreen: ${result.tabSwitches} · ` +
+    `Copy/other: ${result.copiesAttempted} · ` +
+    `Penalty: ${result.penaltiesApplied}`;
 
 
-  $("reviewLedger")
-    .innerHTML =
-      "";
+  $("reviewLedger").innerHTML = "";
 
 
   questions.forEach(
-    (
-      question,
-      index
-    ) => {
+    (question, index) => {
 
-      const mine =
+      const myAnswer =
         attempt.answers?.[
-          question.id
+          String(question.id)
         ] ||
         "Not answered";
 
 
-      const right =
+      const correctAnswer =
         question.a ??
         question.answer;
 
 
       const item =
-        document.createElement(
-          "div"
-        );
+        document.createElement("div");
 
 
       item.className =
-        `
-          ledger-item
-          ${
-            mine === right
-              ? "ok"
-              : mine ===
-                "Not answered"
-                ? ""
-                : "bad"
-          }
-        `;
-
-
-      item.textContent =
-        `Q${
-          index + 1
-        }. ${
-          question.q ??
-          question.question
-        } | Your answer: ${
-          mine
-        } | Correct: ${
-          right
+        `ledger-item ${
+          myAnswer === correctAnswer
+            ? "ok"
+            : myAnswer === "Not answered"
+              ? ""
+              : "bad"
         }`;
 
 
-      $("reviewLedger")
-        .append(item);
+      item.textContent =
+        `Q${index + 1}. ` +
+        `${question.q ?? question.question} | ` +
+        `Your answer: ${myAnswer} | ` +
+        `Correct: ${correctAnswer}`;
+
+
+      $("reviewLedger").append(item);
+
     }
   );
 
 
   /*
-    STAR RATING
+     Prevent duplicate stars if result screen
+     is somehow reopened.
   */
 
-  $("stars")
-    .innerHTML =
-      "";
+  $("stars").innerHTML = "";
 
 
-  for (
-    let i = 1;
-    i <= 5;
-    i++
-  ) {
+  for (let i = 1; i <= 5; i++) {
 
-    const button =
-      document.createElement(
-        "button"
-      );
+    const star =
+      document.createElement("button");
 
 
-    button.type =
-      "button";
+    star.type = "button";
+    star.className = "star";
+    star.textContent = "★";
 
 
-    button.className =
-      "star";
+    star.onclick = () => {
+
+      rating = i;
 
 
-    button.textContent =
-      "★";
+      document
+        .querySelectorAll(".star")
+        .forEach(
+          (element, index) => {
+
+            element.classList.toggle(
+              "active",
+              index < i
+            );
+
+          }
+        );
+
+    };
 
 
-    button.onclick =
-      () => {
+    $("stars").append(star);
 
-        rating =
-          i;
-
-
-        document
-          .querySelectorAll(
-            ".star"
-          )
-          .forEach(
-            (
-              item,
-              index
-            ) => {
-
-              item.classList.toggle(
-                "active",
-                index < i
-              );
-
-            }
-          );
-      };
-
-
-    $("stars")
-      .append(button);
   }
+
+
+  /*
+     Download buttons are created here,
+     so index.html change is not required.
+  */
+
+  addResultDownloadButtons(result);
+
+}
+
+
+/* =========================================================
+   DOWNLOAD BUTTONS
+========================================================= */
+
+function addResultDownloadButtons(result) {
+
+  const container =
+    $("resultView");
+
+
+  if (
+    container.querySelector(
+      ".testhub-download-actions"
+    )
+  ) {
+    return;
+  }
+
+
+  const wrapper =
+    document.createElement("div");
+
+
+  wrapper.className =
+    "testhub-download-actions";
+
+
+  wrapper.style.cssText = `
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin:20px 0;
+  `;
+
+
+  const performanceButton =
+    document.createElement("button");
+
+
+  performanceButton.type = "button";
+  performanceButton.className = "btn";
+  performanceButton.textContent =
+    "Download Performance Result";
+
+
+  performanceButton.onclick =
+    () => downloadPerformance(result);
+
+
+  const questionsButton =
+    document.createElement("button");
+
+
+  questionsButton.type = "button";
+  questionsButton.className = "btn";
+  questionsButton.textContent =
+    "Download Questions & Answers";
+
+
+  questionsButton.onclick =
+    () => downloadQuestions(result);
+
+
+  wrapper.append(
+    performanceButton,
+    questionsButton
+  );
+
+
+  /*
+     Put buttons near top of result page.
+  */
+
+  container.prepend(wrapper);
+
+}
+
+
+/* =========================================================
+   TEXT ESCAPE
+========================================================= */
+
+function escText(value) {
+
+  return String(
+    value ?? ""
+  ).replace(
+    /[&<>"']/g,
+    character => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[character])
+  );
+
+}
+
+
+/* =========================================================
+   CSV CELL
+========================================================= */
+
+function csvCell(value) {
+
+  return `"${String(
+    value ?? ""
+  ).replaceAll('"', '""')}"`;
+
+}
+
+
+/* =========================================================
+   DOWNLOAD BLOB
+========================================================= */
+
+function downloadBlob(
+  content,
+  filename,
+  type
+) {
+
+  const url =
+    URL.createObjectURL(
+      new Blob(
+        [content],
+        { type }
+      )
+    );
+
+
+  const anchor =
+    document.createElement("a");
+
+
+  anchor.href = url;
+  anchor.download = filename;
+
+
+  document.body.appendChild(anchor);
+
+  anchor.click();
+
+  anchor.remove();
+
+
+  setTimeout(
+    () =>
+      URL.revokeObjectURL(url),
+    500
+  );
+
+}
+
+
+/* =========================================================
+   PERFORMANCE RESULT DOWNLOAD
+========================================================= */
+
+function downloadPerformance(result) {
+
+  const accuracy =
+    result.total
+      ? Math.round(
+          result.correct /
+          result.total *
+          100
+        )
+      : 0;
+
+
+  const questionRows =
+    questions.map(
+      (question, index) => {
+
+        const studentAnswer =
+          attempt.answers?.[
+            String(question.id)
+          ] ||
+          "Not answered";
+
+
+        const correctAnswer =
+          question.a ??
+          question.answer;
+
+
+        const resultStatus =
+          studentAnswer === correctAnswer
+            ? "Correct"
+            : studentAnswer === "Not answered"
+              ? "Unanswered"
+              : "Wrong";
+
+
+        return `
+          <div class="q">
+            <div class="subject">
+              ${escText(
+                question.__subject ||
+                "General"
+              )}
+            </div>
+
+            <b>
+              Q${index + 1}.
+            </b>
+
+            ${escText(
+              question.q ??
+              question.question
+            )}
+
+            <br>
+
+            <span>
+              Your answer:
+            </span>
+
+            ${escText(studentAnswer)}
+
+            <br>
+
+            <span>
+              Correct answer:
+            </span>
+
+            ${escText(correctAnswer)}
+
+            <br>
+
+            <span>
+              Result:
+            </span>
+
+            ${resultStatus}
+          </div>
+        `;
+      }
+    )
+    .join("");
+
+
+  const html = `
+<!doctype html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8">
+
+<title>
+  Performance Result
+</title>
+
+<style>
+
+body{
+  font-family:Arial, sans-serif;
+  padding:30px;
+  color:#172033;
+  line-height:1.5;
+}
+
+h1{
+  margin-bottom:5px;
+}
+
+.meta{
+  margin-bottom:25px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:
+    repeat(4, minmax(120px,1fr));
+  gap:12px;
+}
+
+.box{
+  border:1px solid #ddd;
+  padding:14px;
+  border-radius:10px;
+}
+
+.q{
+  padding:12px 0;
+  border-bottom:1px solid #eee;
+}
+
+.subject{
+  font-weight:bold;
+  margin-bottom:5px;
+}
+
+@media(max-width:700px){
+  .grid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>
+  ${escText(
+    result.examTitle ||
+    config.examTitle ||
+    "TestHub Examination"
+  )}
+</h1>
+
+<div class="meta">
+
+<b>Institute:</b>
+${escText(
+  result.instituteName ||
+  config.instituteName ||
+  "TestHub"
+)}
+
+<br>
+
+<b>Student:</b>
+${escText(result.name)}
+
+<br>
+
+<b>Email:</b>
+${escText(result.email)}
+
+<br>
+
+<b>Center Code:</b>
+${escText(
+  result.centerCode || "-"
+)}
+
+<br>
+
+<b>Exam ID:</b>
+${escText(
+  result.examId || "-"
+)}
+
+</div>
+
+
+<div class="grid">
+
+  <div class="box">
+    <b>Score</b>
+    <br>
+    ${result.score}/${result.total}
+  </div>
+
+  <div class="box">
+    <b>Accuracy</b>
+    <br>
+    ${accuracy}%
+  </div>
+
+  <div class="box">
+    <b>Correct</b>
+    <br>
+    ${result.correct}
+  </div>
+
+  <div class="box">
+    <b>Wrong</b>
+    <br>
+    ${result.wrong}
+  </div>
+
+</div>
+
+
+<h2>
+  Security Summary
+</h2>
+
+<p>
+  Tab/fullscreen:
+  ${result.tabSwitches}
+  <br>
+
+  Copy/other:
+  ${result.copiesAttempted}
+  <br>
+
+  Violations:
+  ${result.violationCount}
+  <br>
+
+  Penalty:
+  ${result.penaltiesApplied}
+</p>
+
+
+<h2>
+  Question Performance
+</h2>
+
+${questionRows}
+
+</body>
+
+</html>
+`;
+
+
+  downloadBlob(
+    html,
+    "testhub-performance-result.html",
+    "text/html;charset=utf-8"
+  );
+
+}
+
+
+/* =========================================================
+   QUESTIONS + ANSWERS DOWNLOAD
+========================================================= */
+
+function downloadQuestions() {
+
+  const rows = [[
+    "Question No",
+    "Subject",
+    "Question",
+    "Option A",
+    "Option B",
+    "Option C",
+    "Option D",
+    "Your Answer",
+    "Correct Answer",
+    "Result"
+  ]];
+
+
+  questions.forEach(
+    (question, index) => {
+
+      const myAnswer =
+        attempt.answers?.[
+          String(question.id)
+        ] ||
+        "Not answered";
+
+
+      const correctAnswer =
+        question.a ??
+        question.answer;
+
+
+      const resultStatus =
+        myAnswer === correctAnswer
+          ? "Correct"
+          : myAnswer === "Not answered"
+            ? "Unanswered"
+            : "Wrong";
+
+
+      rows.push([
+
+        index + 1,
+
+        question.__subject ||
+          "General",
+
+        question.q ??
+          question.question,
+
+        question.options?.[0] ||
+          "",
+
+        question.options?.[1] ||
+          "",
+
+        question.options?.[2] ||
+          "",
+
+        question.options?.[3] ||
+          "",
+
+        myAnswer,
+
+        correctAnswer,
+
+        resultStatus
+
+      ]);
+
+    }
+  );
+
+
+  const csv =
+    "\ufeff" +
+    rows
+      .map(
+        row =>
+          row
+            .map(csvCell)
+            .join(",")
+      )
+      .join("\n");
+
+
+  downloadBlob(
+    csv,
+    "testhub-questions-answers.csv",
+    "text/csv;charset=utf-8"
+  );
+
 }
 
 
@@ -2235,15 +2408,11 @@ $("feedbackBtn").onclick =
 
     if (!rating) {
 
-      $("feedbackMsg")
-        .textContent =
-          "Rating required.";
+      $("feedbackMsg").textContent =
+        "Rating required.";
 
-
-      $("feedbackMsg")
-        .className =
-          "notice error";
-
+      $("feedbackMsg").className =
+        "notice error";
 
       return;
     }
@@ -2262,14 +2431,10 @@ $("feedbackBtn").onclick =
           rating,
 
           doubt:
-            $("doubt")
-              .value
-              .trim(),
+            $("doubt").value.trim(),
 
           feedback:
-            $("feedback")
-              .value
-              .trim(),
+            $("feedback").value.trim(),
 
           feedbackAt:
             serverTimestamp()
@@ -2278,68 +2443,32 @@ $("feedbackBtn").onclick =
       );
 
 
-      $("feedbackMsg")
-        .textContent =
-          "Feedback successfully saved.";
+      $("feedbackMsg").textContent =
+        "Feedback successfully saved.";
+
+      $("feedbackMsg").className =
+        "notice";
 
 
-      $("feedbackMsg")
-        .className =
-          "notice";
-
-
-      $("feedbackBtn")
-        .disabled =
-          true;
+      $("feedbackBtn").disabled =
+        true;
 
 
     } catch (error) {
 
-      $("feedbackMsg")
-        .textContent =
-          "Feedback save failed: " +
-          error.message;
+      $("feedbackMsg").textContent =
+        "Feedback save failed: " +
+        error.message;
 
-
-      $("feedbackMsg")
-        .className =
-          "notice error";
+      $("feedbackMsg").className =
+        "notice error";
     }
+
   };
 
 
 /* =========================================================
-   SUCCESS ALERT
-========================================================= */
-
-$("feedbackBtn")
-  .addEventListener(
-    "click",
-    () => {
-
-      setTimeout(
-        () => {
-
-          if (
-            $("feedbackBtn")
-              .disabled
-          ) {
-
-            alert(
-              "Your test was submitted successfully."
-            );
-          }
-
-        },
-        700
-      );
-
-    }
-  );
-
-
-/* =========================================================
-   TEXT REPLACEMENT
+   TEXT REPLACEMENTS
 ========================================================= */
 
 document.addEventListener(
@@ -2373,30 +2502,24 @@ document.addEventListener(
 
 
     document
-      .querySelectorAll(
-        "body *"
-      )
-      .forEach(
-        element => {
+      .querySelectorAll("body *")
+      .forEach(element => {
 
-          if (
-            element.children.length ===
-            0
-          ) {
+        if (
+          element.children.length === 0 &&
+          replacements[
+            element.textContent.trim()
+          ]
+        ) {
 
-            const text =
-              element.textContent.trim();
-
-
-            if (
-              replacements[text]
-            ) {
-
-              element.textContent =
-                replacements[text];
-            }
-          }
+          element.textContent =
+            replacements[
+              element.textContent.trim()
+            ];
 
         }
-      );
-  });
+
+      });
+
+  }
+);
