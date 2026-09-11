@@ -12,7 +12,6 @@
 
   <title>TestHub Admin</title>
 
-
   <style>
 
     :root{
@@ -25,8 +24,6 @@
       --ink:#172033;
       --muted:#64748b;
       --line:#dbe4f0;
-      --white:#ffffff;
-      --soft:#f8fafc;
     }
 
     *{
@@ -80,13 +77,12 @@
     }
 
     .card{
-      background:var(--white);
+      background:#fff;
       border:1px solid var(--line);
       border-radius:18px;
       padding:22px;
       margin-bottom:18px;
-      box-shadow:
-        0 14px 42px #1e3a8a12;
+      box-shadow:0 14px 42px #1e3a8a12;
     }
 
     .top{
@@ -124,8 +120,7 @@
 
     .stats{
       display:grid;
-      grid-template-columns:
-        repeat(4,1fr);
+      grid-template-columns:repeat(4,1fr);
       gap:14px;
     }
 
@@ -177,8 +172,7 @@
     .tab.active{
       background:#fff;
       color:#173b91;
-      box-shadow:
-        0 2px 8px #1e3a8a22;
+      box-shadow:0 2px 8px #1e3a8a22;
     }
 
     .panel{
@@ -216,8 +210,7 @@
     input:focus,
     select:focus{
       border-color:#2563eb;
-      box-shadow:
-        0 0 0 3px #2563eb22;
+      box-shadow:0 0 0 3px #2563eb22;
     }
 
     .btn{
@@ -266,15 +259,13 @@
 
     .grid3{
       display:grid;
-      grid-template-columns:
-        repeat(3,1fr);
+      grid-template-columns:repeat(3,1fr);
       gap:15px;
     }
 
     .grid4{
       display:grid;
-      grid-template-columns:
-        repeat(4,1fr);
+      grid-template-columns:repeat(4,1fr);
       gap:15px;
     }
 
@@ -348,8 +339,7 @@
       padding:13px;
     }
 
-    .radio-row label,
-    .check{
+    .radio-row label{
       display:flex;
       align-items:center;
       gap:8px;
@@ -358,8 +348,7 @@
       color:var(--ink);
     }
 
-    .radio-row input,
-    .check input{
+    .radio-row input{
       width:auto;
     }
 
@@ -394,18 +383,11 @@
     .filters{
       display:grid;
       grid-template-columns:
-        1.4fr
-        .9fr
-        .9fr
-        auto
+        1.2fr
+        .8fr
         auto;
       gap:9px;
       margin:15px 0;
-      align-items:end;
-    }
-
-    .filter-field label{
-      margin-top:0;
     }
 
     .table{
@@ -417,7 +399,7 @@
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:1100px;
+      min-width:1150px;
     }
 
     th,
@@ -438,12 +420,6 @@
 
     tr:last-child td{
       border-bottom:0;
-    }
-
-    .rank-cell{
-      font-size:16px;
-      font-weight:900;
-      color:#173b91;
     }
 
     .badge{
@@ -476,6 +452,32 @@
       color:#92400e;
     }
 
+    .purple{
+      background:#ede9fe;
+      color:#6d28d9;
+    }
+
+    .progress{
+      width:120px;
+      height:8px;
+      overflow:hidden;
+      border-radius:999px;
+      background:#e2e8f0;
+    }
+
+    .progress > span{
+      display:block;
+      height:100%;
+      background:#2563eb;
+      border-radius:999px;
+    }
+
+    .live-actions{
+      display:flex;
+      gap:7px;
+      flex-wrap:wrap;
+    }
+
     .empty{
       text-align:center;
       padding:30px!important;
@@ -484,8 +486,7 @@
 
     .leaderboard-top{
       display:grid;
-      grid-template-columns:
-        repeat(4,1fr);
+      grid-template-columns:repeat(4,1fr);
       gap:12px;
       margin-bottom:16px;
     }
@@ -506,8 +507,7 @@
 
     .detail-grid{
       display:grid;
-      grid-template-columns:
-        repeat(4,1fr);
+      grid-template-columns:repeat(4,1fr);
       gap:10px;
       margin:16px 0;
     }
@@ -577,30 +577,14 @@
       gap:15px;
     }
 
-    .result-title{
-      margin:0;
-    }
-
-    .section-block{
-      margin-top:22px;
-      padding-top:18px;
-      border-top:1px solid var(--line);
-    }
-
     @media(max-width:1100px){
 
-      .filters{
-        grid-template-columns:1fr 1fr;
-      }
-
       .leaderboard-top{
-        grid-template-columns:
-          repeat(2,1fr);
+        grid-template-columns:repeat(2,1fr);
       }
 
       .detail-grid{
-        grid-template-columns:
-          repeat(2,1fr);
+        grid-template-columns:repeat(2,1fr);
       }
 
     }
@@ -609,8 +593,7 @@
 
       .stats,
       .grid4{
-        grid-template-columns:
-          repeat(2,1fr);
+        grid-template-columns:repeat(2,1fr);
       }
 
       .grid3{
@@ -649,10 +632,6 @@
         padding:16px;
       }
 
-      .tabs{
-        border-radius:10px;
-      }
-
     }
 
   </style>
@@ -663,9 +642,7 @@
 <body>
 
 
-  <!-- =======================================================
-       ADMIN LOGIN
-  ======================================================== -->
+  <!-- ADMIN LOGIN -->
 
   <main
     id="login"
@@ -683,7 +660,7 @@
 
     <form id="loginForm">
 
-      <label for="email">
+      <label>
         Email
       </label>
 
@@ -695,7 +672,7 @@
       >
 
 
-      <label for="password">
+      <label>
         Password
       </label>
 
@@ -727,9 +704,7 @@
 
 
 
-  <!-- =======================================================
-       ADMIN APP
-  ======================================================== -->
+  <!-- ADMIN APP -->
 
   <div
     id="app"
@@ -780,70 +755,54 @@
     <main class="wrap">
 
 
-      <!-- =====================================================
-           TOP STATS
-      ====================================================== -->
+      <!-- STATS -->
 
       <section class="stats">
 
         <div class="card stat">
-
           <span class="muted">
             Submissions
           </span>
-
           <b id="submissions">
             0
           </b>
-
         </div>
 
 
         <div class="card stat">
-
           <span class="muted">
             Active attempts
           </span>
-
           <b id="active">
             0
           </b>
-
         </div>
 
 
         <div class="card stat">
-
           <span class="muted">
             Average score
           </span>
-
           <b id="average">
             0
           </b>
-
         </div>
 
 
         <div class="card stat">
-
           <span class="muted">
             Average rating
           </span>
-
           <b id="ratingAvg">
             0/5
           </b>
-
         </div>
 
       </section>
 
 
 
-      <!-- =====================================================
-           TABS
-      ====================================================== -->
+      <!-- TABS -->
 
       <nav class="tabs">
 
@@ -882,9 +841,7 @@
 
 
 
-      <!-- =====================================================
-           SETUP
-      ====================================================== -->
+      <!-- SETUP -->
 
       <section
         id="setup"
@@ -898,9 +855,10 @@
             📚 Multi-Exam & Subject-wise Question Control
           </h2>
 
+
           <p class="muted">
-            All exam-specific question count, question source,
-            question order and timer controls are managed here.
+            Configure exam-specific question count,
+            source, order and timer.
           </p>
 
 
@@ -934,7 +892,7 @@
             <div>
 
               <label>
-                Per Exam Timer (Minutes) *
+                Timer (Minutes)
               </label>
 
               <input
@@ -950,7 +908,7 @@
             <div>
 
               <label>
-                Penalty / Violation *
+                Penalty / Violation
               </label>
 
               <input
@@ -971,6 +929,7 @@
             <h3>
               Active Exam(s)
             </h3>
+
 
             <div class="exam-choice">
 
@@ -1013,10 +972,6 @@
               </label>
 
             </div>
-
-            <span class="muted">
-              Only selected exams will be available to students.
-            </span>
 
           </div>
 
@@ -1079,57 +1034,46 @@
             📍 Examination Center Access
           </h2>
 
-          <p class="muted">
-            Only students with the active center code can enter.
-          </p>
-
 
           <div class="grid4">
 
             <div>
-
               <label>
-                Center Code *
+                Center Code
               </label>
 
               <input
                 id="centerCode"
                 placeholder="ACC-2026"
               >
-
             </div>
 
 
             <div>
-
               <label>
-                Institute Name *
+                Institute Name
               </label>
 
               <input
                 id="instituteName"
-                placeholder="SAURAV COMPETITION"
+                placeholder="TestHub"
               >
-
             </div>
 
 
             <div>
-
               <label>
-                Institute Location *
+                Institute Location
               </label>
 
               <input
                 id="instituteLocation"
-                placeholder="DALTONGANJ"
+                placeholder="Location"
               >
-
             </div>
 
 
             <div>
-
               <label>
                 Full Address
               </label>
@@ -1138,7 +1082,6 @@
                 id="fullAddress"
                 placeholder="Full address"
               >
-
             </div>
 
           </div>
@@ -1169,12 +1112,8 @@
         <div class="card">
 
           <h2>
-            🗓 Test Availability & Upload Settings
+            🗓 Test Availability
           </h2>
-
-          <p class="muted">
-            Controls student entry period; exam timer remains separate.
-          </p>
 
 
           <div class="grid3">
@@ -1182,7 +1121,7 @@
             <div>
 
               <label>
-                Overall Entry Start Time *
+                Start
               </label>
 
               <input
@@ -1196,7 +1135,7 @@
             <div>
 
               <label>
-                Overall Entry Close Time *
+                Close
               </label>
 
               <input
@@ -1210,7 +1149,7 @@
             <div>
 
               <label>
-                Maximum Tab Switches *
+                Maximum Tab Switches
               </label>
 
               <input
@@ -1273,7 +1212,7 @@
               class="btn success"
               type="button"
             >
-              🔒 Save Availability & Upload Settings
+              Save Availability
             </button>
 
           </div>
@@ -1311,7 +1250,7 @@
 
 
               <label>
-                Or Upload Logo (max 500 KB)
+                Upload Logo
               </label>
 
               <input
@@ -1363,7 +1302,7 @@
         <div class="card">
 
           <h2>
-            🎯 Marking & Advanced Security
+            🎯 Marking & Security
           </h2>
 
 
@@ -1392,7 +1331,9 @@
                 Violation response
               </label>
 
-              <select id="replaceQuestionOnSwitch">
+              <select
+                id="replaceQuestionOnSwitch"
+              >
 
                 <option value="true">
                   Replace question
@@ -1429,24 +1370,13 @@
 
           </div>
 
-
-          <div class="summary">
-
-            Fullscreen startup has a protected initialization
-            period. The initial fullscreen transition is not
-            counted as a student violation.
-
-          </div>
-
         </div>
 
       </section>
 
 
 
-      <!-- =====================================================
-           LIVE ATTEMPTS
-      ====================================================== -->
+      <!-- LIVE -->
 
       <section
         id="live"
@@ -1456,8 +1386,14 @@
         <div class="card">
 
           <h2>
-            🟢 Live Attempts
+            🟢 Real-Time Live Attempts
           </h2>
+
+
+          <p class="muted">
+            Monitor candidates currently taking the exam.
+            The table updates automatically.
+          </p>
 
 
           <div class="table">
@@ -1469,7 +1405,7 @@
                 <tr>
 
                   <th>
-                    Name
+                    Student
                   </th>
 
                   <th>
@@ -1481,11 +1417,19 @@
                   </th>
 
                   <th>
+                    Center
+                  </th>
+
+                  <th>
                     Status
                   </th>
 
                   <th>
-                    Question
+                    Progress
+                  </th>
+
+                  <th>
+                    Time Left
                   </th>
 
                   <th>
@@ -1497,7 +1441,11 @@
                   </th>
 
                   <th>
-                    Updated
+                    Last Activity
+                  </th>
+
+                  <th>
+                    Action
                   </th>
 
                 </tr>
@@ -1519,9 +1467,7 @@
 
 
 
-      <!-- =====================================================
-           RESULTS & LEADERBOARD
-      ====================================================== -->
+      <!-- RESULTS -->
 
       <section
         id="results"
@@ -1593,61 +1539,41 @@
 
           <div class="filters">
 
-            <div class="filter-field">
-
-              <label>
-                Search
-              </label>
-
-              <input
-                id="resultSearch"
-                placeholder="Search name / email / exam"
-              >
-
-            </div>
+            <input
+              id="resultSearch"
+              placeholder="Search name / email / exam"
+            >
 
 
-            <div class="filter-field">
+            <select id="examFilter">
 
-              <label>
-                Exam
-              </label>
+              <option value="">
+                All Exams
+              </option>
 
-              <select id="examFilter">
-
-                <option value="">
-                  All Exams
-                </option>
-
-              </select>
-
-            </div>
+            </select>
 
 
-            <div class="filter-field">
+            <select id="resultSort">
 
-              <label>
-                Sort
-              </label>
+              <option value="score">
+                Highest Score
+              </option>
 
-              <select id="resultSort">
+              <option value="newest">
+                Newest Submission
+              </option>
 
-                <option value="score">
-                  Highest Score
-                </option>
+              <option value="rating">
+                Highest Rating
+              </option>
 
-                <option value="newest">
-                  Newest Submission
-                </option>
+            </select>
 
-                <option value="rating">
-                  Highest Rating
-                </option>
+          </div>
 
-              </select>
 
-            </div>
-
+          <div class="actions">
 
             <button
               id="csv"
@@ -1680,7 +1606,7 @@
                   </th>
 
                   <th>
-                    Student Details
+                    Student
                   </th>
 
                   <th>
@@ -1708,7 +1634,7 @@
                   </th>
 
                   <th>
-                    Submitted At
+                    Submitted
                   </th>
 
                   <th>
@@ -1738,9 +1664,7 @@
 
 
 
-      <!-- =====================================================
-           SECURITY
-      ====================================================== -->
+      <!-- SECURITY -->
 
       <section
         id="security"
@@ -1869,9 +1793,7 @@
 
 
 
-  <!-- =======================================================
-       RESULT DETAIL MODAL
-  ======================================================== -->
+  <!-- RESULT DETAIL MODAL -->
 
   <div
     id="detailModal"
@@ -1884,10 +1806,7 @@
 
         <div>
 
-          <h2
-            id="detailTitle"
-            class="result-title"
-          >
+          <h2 id="detailTitle">
             Result Details
           </h2>
 
@@ -1910,9 +1829,7 @@
       </div>
 
 
-      <div
-        id="detailContent"
-      ></div>
+      <div id="detailContent"></div>
 
     </div>
 
