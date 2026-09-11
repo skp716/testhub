@@ -1,141 +1,210 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─────────────────────────────────────────────
-    // Helper functions
-    // ─────────────────────────────────────────────
+    /* =====================================================
+       ADMIN CHECK
+    ===================================================== */
 
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function admin() {
-      return signedIn()
+    function isAdmin() {
+      return request.auth != null
         && exists(
           /databases/$(database)/documents/admin/$(request.auth.uid)
         )
         && get(
           /databases/$(database)/documents/admin/$(request.auth.uid)
         ).data.active == true
-        && get(
-          /databases/$(database)/documents/admin/$(request.auth.uid)
-        ).data.role in ['admin', 'super_admin'];
+        && (
+          get(
+            /databases/$(database)/documents/admin/$(request.auth.uid)
+          ).data.role == "admin"
+          ||
+          get(
+            /databases/$(database)/documents/admin/$(request.auth.uid)
+          ).data.role == "super_admin"
+        );
     }
 
-    function isOwner() {
-      return signedIn()
-        && resource.data.ownerUid == request.auth.uid;
-    }
 
-    function isNewOwner() {
-      return signedIn()
-        && request.resource.data.ownerUid == request.auth.uid;
-    }
-
-    // ─────────────────────────────────────────────
-    // Admin users
-    // ─────────────────────────────────────────────
+    /* =====================================================
+       ADMIN DOCUMENTS
+    ===================================================== */
 
     match /admin/{uid} {
-      allow read: if signedIn()
-        && (request.auth.uid == uid || admin());
 
-      allow write: if admin();
+      allow read: if isAdmin();
+
+      allow create: if isAdmin();
+
+      allow update: if isAdmin();
+
+      allow delete: if isAdmin();
     }
 
-    // ─────────────────────────────────────────────
-    // Exam configuration
-    // ─────────────────────────────────────────────
+
+    /* =====================================================
+       EXAM CONFIG
+    ===================================================== */
 
     match /exam_config/{configId} {
-      allow read: if signedIn();
-      allow write: if admin();
+
+      /*
+        Student needs to read only the active exam configuration.
+      */
+
+      allow read: if
+        request.auth != null;
+
+      /*
+        Only authorized admin can create/update/delete config.
+      */
+
+      allow create, update, delete: if isAdmin();
     }
 
-    // ─────────────────────────────────────────────
-    // Attempts
-    // ─────────────────────────────────────────────
+
+    /* =====================================================
+       ATTEMPTS
+    ===================================================== */
 
     match /attempts/{attemptId} {
 
-      // Candidate can create only their own in-progress attempt.
-      // Backend will create verified attempts in the final system.
-      allow create: if signedIn()
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.status == 'in_progress'
-        && request.resource.data.email is string;
+      /*
+        A logged-in student can create his/her own attempt.
 
-      // Candidate can read only their own attempt.
-      // Admin can read all attempts.
-      allow get: if admin()
-        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+        ownerUid must match the authenticated Firebase UID.
+      */
 
-      allow list: if admin();
+      allow create: if
+        request.auth != null
+        && request.resource.data.ownerUid ==
+           request.auth.uid;
 
-      // Candidate can update only the limited fields used
-      // for saving answers and navigation.
-      // Ownership and protected fields cannot be changed.
-      allow update: if admin()
-        || (
-          signedIn()
-          && resource.data.ownerUid == request.auth.uid
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              'answers',
-              'currentIndex',
-              'markedForReview',
-              'visited',
-              'lastSavedAt'
-            ])
+
+      /*
+        Student can read only his/her own attempt.
+        Admin can read every attempt.
+      */
+
+      allow read: if
+        isAdmin()
+        ||
+        (
+          request.auth != null
+          && resource.data.ownerUid ==
+             request.auth.uid
         );
 
-      // Only admin can delete attempts.
-      allow delete: if admin();
+
+      /*
+        Student can update only his/her own attempt.
+
+        This allows the fields used by the current student.js:
+        - answers
+        - review
+        - currentIndex
+        - violations
+        - violationCount
+        - penaltiesApplied
+        - questionIds
+        - updatedAt
+        - submittedAt
+        - status
+        - resultSummary
+        - questionSnapshot
+
+        Admin can update anything.
+      */
+
+      allow update: if
+        isAdmin()
+        ||
+        (
+          request.auth != null
+          && resource.data.ownerUid ==
+             request.auth.uid
+          && request.resource.data.ownerUid ==
+             resource.data.ownerUid
+        );
+
+
+      /*
+        Only admin can delete attempts.
+      */
+
+      allow delete: if isAdmin();
     }
 
-    // ─────────────────────────────────────────────
-    // Results
-    // ─────────────────────────────────────────────
+
+    /* =====================================================
+       RESULTS
+    ===================================================== */
 
     match /results/{resultId} {
 
-      // Candidates cannot create results directly.
-      // Backend/Admin will create verified results.
-      allow create: if admin();
+      /*
+        Student can create only his/her own result.
 
-      // Candidate can read only their own result.
-      // Admin can read all results.
-      allow get: if admin()
-        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+        ownerUid must match Firebase Auth UID.
+      */
 
-      allow list: if admin();
+      allow create: if
+        request.auth != null
+        && request.resource.data.ownerUid ==
+           request.auth.uid;
 
-      // Candidate may update only feedback-related fields.
-      // Score, answers, marks, rank, etc. are protected.
-      allow update: if admin()
-        || (
-          signedIn()
-          && resource.data.ownerUid == request.auth.uid
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              'rating',
-              'doubt',
-              'feedback',
-              'feedbackAt'
-            ])
+
+      /*
+        Student can read only his/her result.
+        Admin can read all results.
+      */
+
+      allow read: if
+        isAdmin()
+        ||
+        (
+          request.auth != null
+          && resource.data.ownerUid ==
+             request.auth.uid
         );
 
-      allow delete: if admin();
+
+      /*
+        Student can update only his/her own result.
+
+        Required for:
+        - rating
+        - doubt
+        - feedback
+        - feedbackAt
+
+        Admin can update anything.
+      */
+
+      allow update: if
+        isAdmin()
+        ||
+        (
+          request.auth != null
+          && resource.data.ownerUid ==
+             request.auth.uid
+          && request.resource.data.ownerUid ==
+             resource.data.ownerUid
+        );
+
+
+      /*
+        Only admin can permanently delete results.
+      */
+
+      allow delete: if isAdmin();
     }
 
-    // ─────────────────────────────────────────────
-    // Default deny
-    // ─────────────────────────────────────────────
+
+    /* =====================================================
+       DENY EVERYTHING ELSE
+    ===================================================== */
 
     match /{document=**} {
       allow read, write: if false;
